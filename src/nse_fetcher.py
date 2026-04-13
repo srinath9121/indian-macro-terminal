@@ -1,0 +1,353 @@
+import yfinance as yf
+import pandas as pd
+from datetime import datetime, time
+import pytz
+import logging
+import requests
+from nse import NSE
+try:
+    from .nse_session import nse_session_manager
+except ImportError:
+    from nse_session import nse_session_manager
+# India timezone
+IST = pytz.timezone('Asia/Kolkata')
+
+NIFTY_50_TICKERS = [
+    "ADANIENT.NS", "ADANIPORTS.NS", "APOLLOHOSP.NS", "ASIANPAINT.NS", "AXISBANK.NS", 
+    "BAJAJ-AUTO.NS", "BAJFINANCE.NS", "BAJAJFINSV.NS", "BPCL.NS", "BHARTIARTL.NS", 
+    "BRITANNIA.NS", "CIPLA.NS", "COALINDIA.NS", "DIVISLAB.NS", "DRREDDY.NS", 
+    "EICHERMOT.NS", "GRASIM.NS", "HCLTECH.NS", "HDFCBANK.NS", "HDFCLIFE.NS", 
+    "HEROMOTOCO.NS", "HINDALCO.NS", "HINDUNILVR.NS", "ICICIBANK.NS", "ITC.NS", 
+    "INDUSINDBK.NS", "INFY.NS", "JSWSTEEL.NS", "KOTAKBANK.NS", "LTIM.NS", 
+    "LT.NS", "M&M.NS", "MARUTI.NS", "NTPC.NS", "NESTLEIND.NS", "ONGC.NS", 
+    "POWERGRID.NS", "RELIANCE.NS", "SBILIFE.NS", "SBIN.NS", "SUNPHARMA.NS", 
+    "TCS.NS", "TATACONSUM.NS", "TATAMOTORS.NS", "TATASTEEL.NS", "TECHM.NS", 
+    "TITAN.NS", "UPL.NS", "ULTRACEMCO.NS", "WIPRO.NS"
+]
+
+INDEX_TICKERS = {
+    "NIFTY 50": "^NSEI",
+    "SENSEX": "^BSESN",
+    "BANKNIFTY": "^NSEBANK",
+    "MIDCPNIFTY": "^NSEMDCP100",
+    "INDIA VIX": "^INDIAVIX"
+}
+
+SECTOR_TICKERS = {
+    "Banks":      "^NSEBANK",
+    "IT":         "^CNXIT",
+    "Auto":       "^CNXAUTO",
+    "Pharma":     "^CNXPHARMA",
+    "FMCG":       "^CNXFMCG",
+    "Metal":      "^CNXMETAL",
+    "Realty":     "^CNXREALTY",
+    "Energy":     "^CNXENERGY",
+    "Infra":      "^CNXINFRA",
+    "Media":      "^CNXMEDIA"
+}
+
+class NSEMoversFetcher:
+    def __init__(self):
+        self.last_data = None
+
+    def is_market_open(self):
+        now = datetime.now(IST)
+        # Weekends
+        if now.weekday() >= 5:
+            return False
+        
+        market_start = now.replace(hour=9, minute=15, second=0, microsecond=0)
+        market_end = now.replace(hour=15, minute=30, second=0, microsecond=0)
+        
+        return market_start <= now <= market_end
+
+    def fetch(self):
+        """Main entry point to get movers using the official NSE API."""
+        logging.info("Fetching NSE Nifty 50 Movers from Official API...")
+        
+        try:
+            session = nse_session_manager.get_session()
+            # The endpoint for Nifty 50 stocks
+            resp = session.get("https://www.nseindia.com/api/equity-stockIndices?index=NIFTY%2050", timeout=10)
+            data = resp.json()
+            
+            stocks = data.get('data', [])
+            if not stocks:
+                return self._fetch_yfinance_fallback()
+            
+            # The first element is usually the index itself, skip it
+            stock_list = stocks[1:]
+            
+            formatted_stocks = []
+            for item in stock_list:
+                formatted_stocks.append({
+                    "symbol": item['symbol'],
+                    "company_name": item['meta']['companyName'],
+                    "ltp": item['lastPrice'],
+                    "change": item['change'],
+                    "pChange": item['pChange'],
+                    "volume": item['totalTradedVolume'],
+                    "macro_flag": None
+                })
+            
+            # Sort for Gainers (descending pChange) and Losers (ascending pChange)
+            gainers = sorted(formatted_stocks, key=lambda x: x['pChange'], reverse=True)[:6]
+            losers = sorted(formatted_stocks, key=lambda x: x['pChange'])[:6]
+            # Sort for Volume Shockers
+            volume_shockers = sorted(formatted_stocks, key=lambda x: x['volume'], reverse=True)[:6]
+            
+            return {
+                "gainers": gainers,
+                "losers": losers,
+                "volume_shockers": volume_shockers,
+                "timestamp": datetime.now(IST).isoformat(),
+                "source": "NSE Official API",
+                "market_status": "Open" if self.is_market_open() else "Closed"
+            }
+            
+        except Exception as e:
+            logging.warning(f"NSE Official API fetch failed: {e}. Falling back to yfinance.")
+            return self._fetch_yfinance_fallback()
+
+    def _format_nse_list(self, nse_data):
+        return [
+            {
+                "symbol": item['symbol'],
+                "company_name": item.get('companyName', item['symbol']),
+                "ltp": item['ltp'],
+                "change": item['change'],
+                "pChange": item['pChange'],
+                "volume": item.get('volume', 0),
+                "macro_flag": None
+            } for item in nse_data
+        ]
+
+    def _fetch_yfinance_fallback(self):
+        try:
+            # Batch fetch 2 days to get prev close
+            data = yf.download(NIFTY_50_TICKERS, period="2d", interval="1d", group_by='ticker', progress=False)
+            results = []
+            
+            for ticker in NIFTY_50_TICKERS:
+                try:
+                    ticker_data = data[ticker]
+                    if len(ticker_data) < 2: continue
+                    
+                    ltp = float(ticker_data['Close'].iloc[-1])
+                    prev_close = float(ticker_data['Close'].iloc[-2])
+                    volume = int(ticker_data['Volume'].iloc[-1])
+                    
+                    change = ltp - prev_close
+                    p_change = (change / prev_close) * 100
+                    
+                    results.append({
+                        "symbol": ticker.replace(".NS", ""),
+                        "company_name": ticker.replace(".NS", ""), # yfinance doesn't give company name easily in batch
+                        "ltp": round(ltp, 2),
+                        "change": round(change, 2),
+                        "pChange": round(p_change, 2),
+                        "volume": volume,
+                        "macro_flag": None
+                    })
+                except:
+                    continue
+            
+            # Sort for Gainers, Losers, and Volume Shockers
+            gainers = sorted(results, key=lambda x: x['pChange'], reverse=True)[:6]
+            losers = sorted(results, key=lambda x: x['pChange'])[:6]
+            volume_shockers = sorted(results, key=lambda x: x['volume'], reverse=True)[:6]
+            
+            return {
+                "gainers": gainers,
+                "losers": losers,
+                "volume_shockers": volume_shockers,
+                "timestamp": datetime.now(IST).isoformat(),
+                "source": "yfinance Fallback",
+                "market_status": "Open" if self.is_market_open() else "Closed - Previous Session"
+            }
+        except Exception as e:
+            logging.error(f"yfinance fallback failed: {e}")
+            return {"error": str(e)}
+
+    def fetch_indices(self):
+        """Fetches the 5 core market indices."""
+        results = []
+        for name, ticker in INDEX_TICKERS.items():
+            try:
+                # Special handling for VIX fallback
+                if name == "INDIA VIX":
+                    vix_data = self._fetch_vix_with_fallback()
+                    if vix_data:
+                        results.append(vix_data)
+                        continue
+
+                # Standard yfinance fetch for others
+                yt = yf.Ticker(ticker)
+                hist = yt.history(period="2d")
+                if not hist.empty and len(hist) >= 2:
+                    current = float(hist['Close'].iloc[-1])
+                    prev = float(hist['Close'].iloc[-2])
+                    change = current - prev
+                    p_change = (change / prev) * 100
+                    
+                    results.append({
+                        "name": name,
+                        "value": round(current, 2),
+                        "change": round(change, 2),
+                        "pChange": round(p_change, 2)
+                    })
+            except Exception as e:
+                logging.warning(f"Failed to fetch index {name}: {e}")
+                
+        return results
+
+    def _fetch_vix_with_fallback(self):
+        """Tries yfinance, then NSE API for VIX with interpretation."""
+        vix_val = None
+        change = 0
+        p_change = 0
+
+        # try NSE API First
+        try:
+            session = nse_session_manager.get_session()
+            resp = session.get("https://www.nseindia.com/api/allIndices", timeout=5)
+            data = resp.json()
+            for item in data.get('data', []):
+                if item.get('index') == "INDIA VIX":
+                    vix_val = float(item.get('last', 0))
+                    change = float(item.get('variation', 0))
+                    p_change = float(item.get('percentChange', 0))
+                    break
+        except:
+            pass
+
+        # If NSE failed, try yfinance
+        if vix_val is None:
+            try:
+                yt = yf.Ticker("^INDIAVIX")
+                hist = yt.history(period="2d")
+                if not hist.empty and len(hist) >= 2:
+                    vix_val = float(hist['Close'].iloc[-1])
+                    prev = float(hist['Close'].iloc[-2])
+                    change = vix_val - prev
+                    p_change = (change / prev) * 100
+            except:
+                pass
+
+        if vix_val:
+            # Interpretation logic
+            if vix_val < 13: label = "VERY LOW FEAR"
+            elif 13 <= vix_val < 16: label = "NORMAL"
+            elif 16 <= vix_val < 20: label = "ELEVATED CAUTION"
+            elif 20 <= vix_val < 25: label = "HIGH FEAR"
+            else: label = "EXTREME FEAR"
+
+            return {
+                "name": "INDIA VIX",
+                "value": round(vix_val, 2),
+                "change": round(change, 2),
+                "pChange": round(p_change, 2),
+                "label": label
+            }
+            
+        return None
+
+    def fetch_sectors(self):
+        """Fetches 10 sector index performances."""
+        results = []
+        for name, ticker in SECTOR_TICKERS.items():
+            try:
+                yt = yf.Ticker(ticker)
+                hist = yt.history(period="2d")
+                if not hist.empty and len(hist) >= 2:
+                    current = float(hist['Close'].iloc[-1])
+                    prev = float(hist['Close'].iloc[-2])
+                    p_change = ((current - prev) / prev) * 100
+                    results.append({
+                        "name": name,
+                        "pChange": round(p_change, 2),
+                        "value": round(current, 2)
+                    })
+            except:
+                continue
+        return results
+
+    def fetch_fii_dii(self):
+        """Fetches institutional flow from NSE API with fallback."""
+        # Try NSE Official API first
+        try:
+            session = nse_session_manager.get_session()
+            resp = session.get("https://www.nseindia.com/api/fiidiiTradeReact", timeout=8)
+            data = resp.json()
+
+            if data and len(data) >= 2:
+                latest_date = data[0]['date']
+                fii = next((x for x in data if x['category'] == 'FII' and x['date'] == latest_date), None)
+                dii = next((x for x in data if x['category'] == 'DII' and x['date'] == latest_date), None)
+
+                if fii and dii:
+                    f_net = float(fii['netValue'])
+                    d_net = float(dii['netValue'])
+                    mtd_fii = sum(float(x['netValue']) for x in data if x['category'] == 'FII')
+                    return {
+                        "date": latest_date,
+                        "fii": {
+                            "buy": float(fii['buyValue']),
+                            "sell": float(fii['sellValue']),
+                            "net": f_net,
+                            "net_label": "NET BUYERS" if f_net > 0 else "NET SELLERS"
+                        },
+                        "dii": {
+                            "buy": float(dii['buyValue']),
+                            "sell": float(dii['sellValue']),
+                            "net": d_net,
+                            "net_label": "NET BUYERS" if d_net > 0 else "NET SELLERS"
+                        },
+                        "month_to_date_fii_net": round(mtd_fii, 2),
+                        "signal": "BEARISH" if f_net < -2000 else "BULLISH" if f_net > 1000 else "NEUTRAL"
+                    }
+        except Exception as e:
+            logging.warning(f"NSE FII/DII fetch failed: {e}")
+
+        # Fallback: Try moneycontrol
+        try:
+            mc_resp = requests.get(
+                "https://www.moneycontrol.com/stocks/marketstats/fii_dii_activity/data.json",
+                headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0"},
+                timeout=8,
+            )
+            if mc_resp.status_code == 200:
+                mc_data = mc_resp.json()
+                if mc_data:
+                    logging.info("Using moneycontrol fallback for FII/DII data")
+                    # Parse moneycontrol format (varies — best-effort)
+                    fii_buy = float(mc_data.get('fii_buy', 0) or 0)
+                    fii_sell = float(mc_data.get('fii_sell', 0) or 0)
+                    dii_buy = float(mc_data.get('dii_buy', 0) or 0)
+                    dii_sell = float(mc_data.get('dii_sell', 0) or 0)
+                    f_net = fii_buy - fii_sell
+                    d_net = dii_buy - dii_sell
+                    return {
+                        "date": "Latest available",
+                        "fii": {"buy": fii_buy, "sell": fii_sell, "net": f_net,
+                                "net_label": "NET BUYERS" if f_net > 0 else "NET SELLERS"},
+                        "dii": {"buy": dii_buy, "sell": dii_sell, "net": d_net,
+                                "net_label": "NET BUYERS" if d_net > 0 else "NET SELLERS"},
+                        "signal": "BEARISH" if f_net < -2000 else "BULLISH" if f_net > 1000 else "NEUTRAL"
+                    }
+        except Exception as e:
+            logging.warning(f"Moneycontrol FII/DII fallback failed: {e}")
+
+        # Final fallback: return a structured "unavailable" response
+        # so the frontend can display "Data unavailable" instead of "--"
+        return {
+            "date": "Unavailable",
+            "fii": {"buy": 0, "sell": 0, "net": None, "net_label": "DATA UNAVAILABLE"},
+            "dii": {"buy": 0, "sell": 0, "net": None, "net_label": "DATA UNAVAILABLE"},
+            "signal": "NEUTRAL",
+            "unavailable": True
+        }
+
+if __name__ == "__main__":
+    fetcher = NSEMoversFetcher()
+    print(fetcher.fetch())

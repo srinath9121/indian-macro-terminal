@@ -1,0 +1,19 @@
+{
+  "repo_rate": 6.25,
+  "stance": "Neutral",
+  "next_mpc_date": "2026-06-04",
+  "last_action": "Cut 25bps",
+  "last_action_date": "2026-02-07",
+  "cpi_last": 4.9,
+  "cpi_target": 4.0,
+  "last_updated": "2026-04-01",
+  "forex_reserves": 642,
+  "macro_calendar": [
+    { "date": "2026-04-07", "event": "Nifty expiry (weekly F&O)" },
+    { "date": "2026-04-14", "event": "Ambedkar Jayanti (Market Holiday)" },
+    { "date": "2026-06-04", "event": "RBI MPC Meeting Day 1" },
+    { "date": "2026-06-06", "event": "RBI MPC Rate Decision" },
+    { "date": "2026-07-01", "event": "GST Council Meeting (expected)" },
+    { "date": "2026-08-01", "event": "Union Budget 2026-27 (estimated)" }
+  ]
+}

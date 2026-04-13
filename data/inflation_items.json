@@ -1,0 +1,9 @@
+[
+  {"item": "Tomatoes", "yoy": 34.2, "status": "red"},
+  {"item": "Cooking oil", "yoy": 18.7, "status": "red"},
+  {"item": "Pulses (dal)", "yoy": 12.4, "status": "amber"},
+  {"item": "Wheat flour", "yoy": 8.1, "status": "amber"},
+  {"item": "Petrol", "yoy": 6.2, "status": "amber"},
+  {"item": "Electricity", "yoy": 3.1, "status": "green"},
+  {"item": "Mobile plans", "yoy": -2.4, "status": "green"}
+]

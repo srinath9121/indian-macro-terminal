@@ -1,0 +1,13 @@
+{
+  "hormuz_status": "RESTRICTED TRANSIT",
+  "ships_passing": 12,
+  "ships_normal": 21,
+  "india_oil_at_risk": "3.2 mb/day",
+  "brent_premium": 28,
+  "daily_import_bill": 420.0,
+  "monthly_extra_cost": 18000.0,
+  "cad_impact": 1.2,
+  "russia_oil_share": 32,
+  "russia_status": "AMBIGUOUS",
+  "russia_risk_cost": 8000.0
+}

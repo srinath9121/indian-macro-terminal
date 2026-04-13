@@ -1,0 +1,160 @@
+/* ════════════════════════════════════════════════════
+   India Macro Terminal — Core Styles v4.0
+   No Tailwind. Pure CSS. Dark terminal aesthetic.
+   ════════════════════════════════════════════════════ */
+
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap');
+
+:root {
+  --bg-primary: #0A0A0F;
+  --bg-navbar: #0D0D1A;
+  --bg-card: #0D0D1A;
+  --border-color: #1A1A2E;
+  --cyan: #00D4FF;
+  --green: #00FF88;
+  --red: #FF4444;
+  --amber: #FFB347;
+  --orange: #FF8C00;
+  --violet: #A855F7;
+  --text-primary: #FFFFFF;
+  --text-secondary: #8892A0;
+  --text-muted: #555B66;
+  --font-mono: 'Space Mono', monospace;
+  --font-body: Arial, Helvetica, sans-serif;
+}
+
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  overflow-x: hidden;
+}
+
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: 1.5;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: var(--bg-primary); }
+::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* ────────── SCANLINE TRANSITION ────────── */
+@keyframes scanline {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100%); }
+}
+
+.scanline-transition {
+  position: relative;
+  overflow: hidden;
+}
+
+.scanline-transition::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+  animation: scanline 0.3s linear;
+  pointer-events: none;
+}
+
+/* ────────── GREEN PULSE DOT ────────── */
+@keyframes livePulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 4px var(--green); }
+  50% { opacity: 0.4; box-shadow: 0 0 8px var(--green); }
+}
+
+.live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--green);
+  animation: livePulse 2s ease-in-out infinite;
+}
+
+.live-dot-red {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--red);
+}
+
+.live-dot-amber {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--amber);
+  animation: livePulse 2s ease-in-out infinite;
+}
+
+/* ────────── VALUE FLASH ────────── */
+@keyframes valueFlash {
+  0% { background-color: rgba(255, 255, 0, 0.3); }
+  100% { background-color: transparent; }
+}
+
+.flash-update {
+  animation: valueFlash 0.8s ease-out;
+}
+
+/* ────────── SKELETON LOADING ────────── */
+@keyframes skeleton {
+  0% { opacity: 0.3; }
+  50% { opacity: 0.6; }
+  100% { opacity: 0.3; }
+}
+
+.skeleton-bar {
+  background: var(--border-color);
+  border-radius: 4px;
+  animation: skeleton 1.5s ease-in-out infinite;
+}
+
+/* ────────── NEWS TICKER ────────── */
+@keyframes marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.marquee-content {
+  display: flex;
+  animation: marquee linear infinite;
+  white-space: nowrap;
+}
+
+/* ────────── GAUGE NEEDLE ────────── */
+@keyframes needleSwing {
+  0% { transform: rotate(-90deg); }
+  100% { transform: rotate(var(--needle-angle)); }
+}
+
+/* ────────── FADE IN ────────── */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.fade-in {
+  animation: fadeIn 0.4s ease-out;
+}
+
+/* ────────── COUNTRY GLOW (for India on map) ────────── */
+@keyframes countryGlow {
+  0%, 100% { stroke-opacity: 1; }
+  50% { stroke-opacity: 0.5; }
+}

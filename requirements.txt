@@ -1,0 +1,15 @@
+yfinance
+feedparser
+pandas
+numpy
+requests
+python-dateutil
+fastapi
+uvicorn[standard]
+pytz
+beautifulsoup4
+lxml
+httpx
+pydantic
+nse
+websockets

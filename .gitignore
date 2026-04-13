@@ -1,0 +1,34 @@
+# Vercel
+.vercel
+.vercel_ignore
+
+# Node
+node_modules
+dist
+.env
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv
+venv/
+ENV/
+env/
+outputs/*.json
+
+# Data/Models
+models/*.pkl
+models/*.joblib
+data/raw/
+data/processed/
+nse_cookies_requests.json
+
+# Local Environment Binaries & Archives
+py311/
+node/
+.gemini/
+*.zip
+*.log
+get-pip.py
