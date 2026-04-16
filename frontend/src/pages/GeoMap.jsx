@@ -94,19 +94,7 @@ export default function GeoMap() {
         </span>
       </div>
 
-      {/* ────── FALLBACK BANNER ────── */}
-      {fallbackMode && (
-        <div style={{
-          padding: '10px 20px',
-          background: '#1A1A2E',
-          textAlign: 'center',
-          fontFamily: "'Space Mono', monospace",
-          fontSize: 11,
-          color: '#FFB347',
-        }}>
-          GDELT pipeline not yet active — Week 4
-        </div>
-      )}
+      {/* ────── FALLBACK BANNER REMOVED ────── */}
 
       {/* ────── MAIN CONTENT ────── */}
       <div style={{ flex: 1, display: 'flex', position: 'relative', overflow: 'hidden' }}>
@@ -221,6 +209,93 @@ export default function GeoMap() {
                   No direct events in current window.
                 </div>
               )}
+            </div>
+
+            {/* ────── INDIA SIGNAL CARDS ────── */}
+            <div style={{ marginTop: 24, paddingBottom: 10 }}>
+              <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: '#00FF88', marginBottom: 12, letterSpacing: '0.1em' }}>
+                INDIA SIGNALS
+              </div>
+              {(() => {
+                const score = gdeltData?.country_scores?.[selectedCountry] || 0;
+                const confidence = Math.max(0, Math.round(100 - score));
+                const c = selectedCountry.toLowerCase();
+                let signals = [];
+                
+                if (['iran', 'saudi arabia', 'russia'].includes(c)) {
+                  signals = [
+                    { asset: 'BRENT', signal: 'WATCH', rule: 'Oil transit/supply risk', env: 'Volatile', trend: 'Up' },
+                    { asset: 'ONGC', signal: 'WATCH', rule: 'Upstream oil producer', env: 'Favorable', trend: 'Up' },
+                    { asset: 'USDINR', signal: 'SELL', rule: 'Higher oil imports widen CAD', env: 'Pressure', trend: 'Down' }
+                  ];
+                } else if (['china', 'pakistan'].includes(c)) {
+                  signals = [
+                    { asset: 'NIFTY IT', signal: 'SELL', rule: 'Supply chain & trade risk', env: 'Risk-Off', trend: 'Down' },
+                    { asset: 'NIFTY', signal: 'WATCH', rule: 'Broad market pressure', env: 'Volatile', trend: 'Sideways' },
+                    { asset: 'GOLD', signal: 'BUY', rule: 'Safe-haven demand', env: 'Favorable', trend: 'Up' }
+                  ];
+                } else if (['usa', 'united states', 'united states of america'].includes(c)) {
+                  signals = [
+                    { asset: 'NIFTY IT', signal: 'BUY', rule: 'USD revenue exposure', env: 'Favorable', trend: 'Up' },
+                    { asset: 'USDINR', signal: 'WATCH', rule: 'Dollar strength vs FII flows', env: 'Volatile', trend: 'Sideways' },
+                    { asset: 'NIFTY', signal: 'NEUTRAL', rule: 'Mixed macro spillovers', env: 'Neutral', trend: 'Sideways' }
+                  ];
+                } else {
+                  signals = [
+                    { asset: 'NIFTY', signal: 'WATCH', rule: 'Monitor macro developments', env: 'Neutral', trend: 'Sideways' },
+                    { asset: 'GOLD', signal: 'WATCH', rule: 'Global risk proxy', env: 'Neutral', trend: 'Sideways' }
+                  ];
+                }
+
+                return signals.map((s, i) => {
+                  const sColor = s.signal === 'BUY' ? '#00FF88' : s.signal === 'SELL' ? '#FF4444' : '#FFB347';
+                  return (
+                    <div key={i} style={{
+                      background: '#0A0A15',
+                      border: '1px solid #1A1A2E',
+                      borderRadius: 6,
+                      padding: 12,
+                      marginBottom: 10
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{
+                            background: `${sColor}20`,
+                            color: sColor,
+                            padding: '2px 6px',
+                            borderRadius: 4,
+                            fontFamily: "'Space Mono', monospace",
+                            fontSize: 10,
+                            fontWeight: 700
+                          }}>
+                            {s.signal}
+                          </span>
+                          <span style={{ fontFamily: "Arial, sans-serif", fontWeight: 700, fontSize: 13, color: '#FFF' }}>
+                            {s.asset}
+                          </span>
+                        </div>
+                        <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: '#00D4FF' }}>
+                          {confidence}% CONF
+                        </span>
+                      </div>
+                      <div style={{ fontFamily: "Arial, sans-serif", fontSize: 11, color: '#8892A0', fontStyle: 'italic', marginBottom: 8 }}>
+                        {s.rule}
+                      </div>
+                      <div style={{ display: 'flex', gap: 12 }}>
+                        <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: '#555B66' }}>
+                          ENV: <span style={{ color: '#FFF' }}>{s.env}</span>
+                        </span>
+                        <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: '#555B66' }}>
+                          TREND: <span style={{ color: '#FFF' }}>{s.trend}</span>
+                        </span>
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
+              <div style={{ fontFamily: "Arial, sans-serif", fontSize: 9, color: '#555B66', textAlign: 'center', marginTop: 12 }}>
+                For informational purposes only. Not financial advice.
+              </div>
             </div>
           </div>
         )}

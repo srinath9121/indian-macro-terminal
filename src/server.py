@@ -433,7 +433,7 @@ async def fetch_live_market_data():
 # ─────────────────────────────────────────────────────
 # WEBSOCKET MANAGEMENT
 # ─────────────────────────────────────────────────────
-ws_clients = []
+ws_clients = {}  # Map WebSocket -> last_pong_time
 _last_broadcast_payload = None
 _last_broadcast_time = None
 
@@ -455,12 +455,22 @@ async def ws_broadcast_loop():
             if gdelt_cached:
                 data["gti"] = gdelt_cached.get("gti", None)
 
-            payload = json.dumps({"type": "price_update", "data": data})
+            # Diff-Only Updates logic
+            if _last_broadcast_payload:
+                diff_data = {"is_diff": True}
+                for k in ["MARKET", "INDICES", "SIGNAL", "NEWS", "market_status", "gti", "irs"]:
+                    if data.get(k) != _last_broadcast_payload.get(k):
+                        diff_data[k] = data.get(k)
+                payload_data = diff_data
+            else:
+                payload_data = data
+
+            payload = json.dumps({"type": "price_update", "data": payload_data})
             _last_broadcast_payload = data
             _last_broadcast_time = datetime.now(IST).isoformat()
 
             disconnected = []
-            for ws in ws_clients:
+            for ws in list(ws_clients.keys()):
                 try:
                     await ws.send_text(payload)
                 except Exception:
@@ -468,7 +478,7 @@ async def ws_broadcast_loop():
 
             for ws in disconnected:
                 if ws in ws_clients:
-                    ws_clients.remove(ws)
+                    del ws_clients[ws]
 
             logger.info(f"Broadcast to {len(ws_clients)} clients (interval={interval}s)")
         except Exception as e:
@@ -476,22 +486,32 @@ async def ws_broadcast_loop():
 
 
 async def ws_heartbeat_loop():
-    """Background task: sends ping/heartbeat to all WebSocket clients."""
+    """Background task: sends ping/heartbeat and enforces 10s pong timeout."""
     while True:
         await asyncio.sleep(25)
         status = market_status()
-        heartbeat = json.dumps({"type": "heartbeat", "market_status": status})
+        ping_payload = json.dumps({"type": "ping", "market_status": status})
 
+        now = time.monotonic()
         disconnected = []
-        for ws in ws_clients:
+        for ws, last_pong in list(ws_clients.items()):
             try:
-                await ws.send_text(heartbeat)
+                # Enforce 10s response window (25s sleep + 10s grade = 35s max age for last pong)
+                if last_pong is not None and (now - last_pong) > 35:
+                    logger.warning("WebSocket client ping timeout. Evicting.")
+                    disconnected.append(ws)
+                    continue
+                await ws.send_text(ping_payload)
             except Exception:
                 disconnected.append(ws)
 
         for ws in disconnected:
             if ws in ws_clients:
-                ws_clients.remove(ws)
+                del ws_clients[ws]
+                try:
+                    await ws.close()
+                except Exception:
+                    pass
 
 
 @app.on_event("startup")
@@ -671,6 +691,68 @@ async def get_gdelt_events():
 
 
 # ─────────────────────────────────────────────────────
+# INDIA RISK SCORE ENDPOINT
+# ─────────────────────────────────────────────────────
+@app.get("/api/india-risk-score")
+@cached("irs_cache", ttl=600)
+async def get_india_risk_score():
+    """Calculates the India Risk Score (IRS) based on 4 contributing factors."""
+    events = await _gdelt.fetch_events()
+    geo_scores = await _gdelt.fetch_geo_scores()
+    
+    # 1. Event Volume (24h)
+    india_relevant_events_count = len([e for e in events if e.get('country') in ['IN', 'PK', 'CN', 'IR', 'US', 'RU']])
+    event_volume_score = min(100.0, (india_relevant_events_count / 50.0) * 100.0)
+    
+    # 2. Average Severity
+    avg_goldstein = sum([float(e.get('goldstein', 0)) for e in events]) / max(1, len(events))
+    avg_severity_score = min(100.0, max(0.0, -avg_goldstein) / 10.0 * 100.0)
+    
+    # 3. Market Stress Ratio
+    market_data = await fetch_live_market_data()
+    vix_current = market_data.get("MARKET", {}).get("INDIAVIX", {}).get("price", 15.0)
+    vix_20d_avg = 14.0 
+    market_stress_score = min(100.0, max(0.0, (vix_current - vix_20d_avg) / vix_20d_avg * 100.0))
+    
+    # 4. Keyword Danger Density
+    headlines = []
+    for src, url in RSS_FEEDS.items():
+        try:
+            resp = feedparser.parse(url)
+            for entry in resp.entries[:10]:
+                headlines.append(str(entry.get('title', '')).lower())
+        except Exception:
+            continue
+            
+    danger_keywords = ['sanctions', 'war', 'conflict', 'crisis', 'strike', 'tension', 'default', 'recession', 'crash', 'selloff', 'outflow', 'ban']
+    keyword_count = sum(1 for h in headlines for kw in danger_keywords if kw in h)
+    keyword_density_score = min(100.0, keyword_count * 8.0)
+    
+    # IRS Formula
+    irs = round((event_volume_score * 0.30) + (avg_severity_score * 0.25) + (market_stress_score * 0.25) + (keyword_density_score * 0.20), 1)
+    irs = min(100.0, max(0.0, irs))
+    
+    # Modes
+    mode = 'RISK OFF' if irs >= 65 else ('NEUTRAL' if irs >= 40 else 'RISK ON')
+    zone = 'EXTREME' if irs >= 80 else ('ELEVATED' if irs >= 60 else ('MODERATE' if irs >= 35 else 'LOW RISK'))
+    
+    return {
+      'irs': irs,
+      'mode': mode,
+      'zone': zone,
+      'factors': {
+        'event_volume': {'score': round(event_volume_score, 1), 'label': 'Event Volume (24h)'},
+        'avg_severity': {'score': round(avg_severity_score, 1), 'label': 'Average Severity'},
+        'market_stress': {'score': round(market_stress_score, 1), 'label': 'Market Stress Ratio'},
+        'keyword_density': {'score': round(keyword_density_score, 1), 'label': 'Keyword Danger Density'}
+      },
+      'top_risk_drivers': [{'headline': h.title(), 'source': 'News RSS'} for h in headlines if any(kw in h for kw in danger_keywords)][:3],
+      'history': [],
+      'updated_at': datetime.now(IST).isoformat()
+    }
+
+
+# ─────────────────────────────────────────────────────
 # FINBERT SENTIMENT ENDPOINT
 # ─────────────────────────────────────────────────────
 @app.get("/api/sentiment")
@@ -687,7 +769,7 @@ async def get_sentiment(text: str = Query(..., description="Text to analyze")):
 @app.websocket("/ws/live")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
-    ws_clients.append(websocket)
+    ws_clients[websocket] = time.monotonic()
     logger.info(f"WebSocket client connected. Total: {len(ws_clients)}")
 
     try:
@@ -698,6 +780,12 @@ async def websocket_endpoint(websocket: WebSocket):
             gdelt_cached = cache_get("gdelt")
             if gdelt_cached:
                 initial_data["gti"] = gdelt_cached.get("gti", None)
+                
+            # Include IRS from cache
+            irs_cached = cache_get("irs_cache")
+            if irs_cached:
+                initial_data["irs"] = irs_cached.get("irs", None)
+                
             await websocket.send_text(json.dumps({
                 "type": "price_update",
                 "data": initial_data,
@@ -713,12 +801,17 @@ async def websocket_endpoint(websocket: WebSocket):
                 try:
                     msg = json.loads(message)
                     if msg.get("type") == "pong":
-                        pass  # Client responded to ping
+                        ws_clients[websocket] = time.monotonic()
                     elif msg.get("type") == "refresh":
                         fresh = await fetch_live_market_data()
                         gdelt_cached = cache_get("gdelt")
                         if gdelt_cached:
                             fresh["gti"] = gdelt_cached.get("gti", None)
+                            
+                        irs_cached = cache_get("irs_cache")
+                        if irs_cached:
+                            fresh["irs"] = irs_cached.get("irs", None)
+                            
                         await websocket.send_text(json.dumps({
                             "type": "price_update",
                             "data": fresh,
@@ -729,7 +822,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 break
     finally:
         if websocket in ws_clients:
-            ws_clients.remove(websocket)
+            del ws_clients[websocket]
         logger.info(f"WebSocket client disconnected. Total: {len(ws_clients)}")
 
 

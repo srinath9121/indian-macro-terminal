@@ -1,14 +1,16 @@
 import { useState, useEffect, useRef } from 'react';
+import { AreaChart, Area, ResponsiveContainer } from 'recharts';
+import AnimatedValue from '../components/AnimatedValue';
+import RelativeTime from '../components/RelativeTime';
 
 // ────── METRIC CARD COMPONENT ──────
-function MetricCard({ name, price, change, pChange, direction, flash }) {
+function MetricCard({ name, price, change, pChange, direction }) {
   const isUp = direction === 'up';
   const arrow = isUp ? '▲' : '▼';
   const color = isUp ? '#00FF88' : '#FF4444';
 
   return (
     <div
-      className={flash ? 'flash-update' : ''}
       style={{
         background: '#0D0D1A',
         border: '1px solid #1A1A2E',
@@ -37,11 +39,11 @@ function MetricCard({ name, price, change, pChange, direction, flash }) {
         color: '#FFFFFF',
         marginBottom: 6,
       }}>
-        {price != null ? price.toLocaleString('en-IN', { minimumFractionDigits: 2 }) : '---'}
+        <AnimatedValue value={price} />
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 12, color, fontWeight: 700 }}>
-          {arrow} {change != null ? (change >= 0 ? '+' : '') + change.toFixed(2) : '--'}
+          <AnimatedValue value={change} prefix={`${arrow} ${change >= 0 ? '+' : ''}`} color={color} />
         </span>
         <span style={{
           fontFamily: "'Space Mono', monospace",
@@ -49,26 +51,37 @@ function MetricCard({ name, price, change, pChange, direction, flash }) {
           color,
           opacity: 0.8,
         }}>
-          ({pChange != null ? (pChange >= 0 ? '+' : '') + pChange.toFixed(2) : '--'}%)
+          (<AnimatedValue value={pChange} prefix={pChange >= 0 ? '+' : ''} suffix="%" color={color} />)
         </span>
       </div>
     </div>
   );
 }
 
-// ────── GTI GAUGE COMPONENT ──────
-function GtiGauge({ score, label }) {
-  const gaugeRef = useRef(null);
+// ────── IRS WIDGET COMPONENT ──────
+function IrsWidget({ irsData, history }) {
+  if (!irsData) {
+    return (
+      <div style={{ background: '#0D0D1A', border: '1px solid #1A1A2E', borderRadius: 8, padding: 20, textAlign: 'center' }}>
+        <div style={{ color: '#555B66', fontFamily: "'Space Mono', monospace", fontSize: 11 }}>Loading IRS Data...</div>
+      </div>
+    );
+  }
 
-  // Needle angle: 0 → -90deg, 100 → +90deg
-  const angle = score != null ? ((score / 100) * 180) - 90 : -90;
+  const { irs, mode, zone, factors, top_risk_drivers, updated_at } = irsData;
 
   const getZoneColor = (val) => {
-    if (val >= 80) return '#FF4444';
-    if (val >= 60) return '#FF8C00';
-    if (val >= 35) return '#FFB347';
-    return '#00FF88';
+    if (val >= 80) return '#EF4444'; // EXTREME
+    if (val >= 60) return '#F97316'; // ELEVATED
+    if (val >= 35) return '#EAB308'; // MODERATE
+    return '#22C55E'; // LOW
   };
+
+  const modeColor = mode === 'RISK ON' ? '#22C55E' : mode === 'RISK OFF' ? '#EF4444' : '#F97316';
+  const scoreColor = getZoneColor(irs);
+
+  // Gauge angle logic
+  const angle = ((irs / 100) * 180) - 90;
 
   return (
     <div style={{
@@ -76,46 +89,156 @@ function GtiGauge({ score, label }) {
       border: '1px solid #1A1A2E',
       borderRadius: 8,
       padding: 20,
-      textAlign: 'center',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 16
     }}>
-      <div style={{
-        fontFamily: "'Space Mono', monospace",
-        fontSize: 10,
-        color: '#8892A0',
-        marginBottom: 12,
-        letterSpacing: '0.15em',
-      }}>
-        INDIA GTI GAUGE
+      {/* TOP ROW */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#EF4444' }} />
+          <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: '#8892A0', letterSpacing: '0.1em' }}>
+            INDIA RISK SCORE
+          </span>
+        </div>
+        <div style={{ textAlign: 'right' }}>
+          <div style={{
+            background: `${modeColor}15`,
+            color: modeColor,
+            border: `1px solid ${modeColor}30`,
+            padding: '2px 8px',
+            borderRadius: 4,
+            fontFamily: "'Space Mono', monospace",
+            fontSize: 11,
+            fontWeight: 700,
+            marginBottom: 4
+          }}>
+            {mode}
+          </div>
+          <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: '#555B66' }}>
+            {updated_at ? <RelativeTime dateString={updated_at} /> : 'Awaiting data...'}
+          </div>
+        </div>
       </div>
 
-      <svg viewBox="0 0 200 120" style={{ width: '100%', maxWidth: 220 }}>
-        {/* Background arc zones */}
-        <path d="M 20 100 A 80 80 0 0 1 100 20" fill="none" stroke="#00FF88" strokeWidth="8" strokeLinecap="round" opacity="0.3" />
-        <path d="M 100 20 A 80 80 0 0 1 145 35" fill="none" stroke="#FFB347" strokeWidth="8" strokeLinecap="round" opacity="0.3" />
-        <path d="M 145 35 A 80 80 0 0 1 170 65" fill="none" stroke="#FF8C00" strokeWidth="8" strokeLinecap="round" opacity="0.3" />
-        <path d="M 170 65 A 80 80 0 0 1 180 100" fill="none" stroke="#FF4444" strokeWidth="8" strokeLinecap="round" opacity="0.3" />
+      {/* SCORE + GAUGE */}
+      <div style={{ textAlign: 'center', position: 'relative' }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 4 }}>
+          <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 42, fontWeight: 700, color: scoreColor }}>
+            <AnimatedValue value={irs} color={scoreColor} />
+          </span>
+          <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 16, color: '#555B66' }}>
+            /100
+          </span>
+        </div>
+        <div style={{ width: '100%', maxWidth: 220, margin: '0 auto', marginTop: -10 }}>
+          <svg viewBox="0 0 200 120" style={{ width: '100%' }}>
+            <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="url(#gradient)" strokeWidth="8" strokeLinecap="round" opacity="0.3" />
+            <defs>
+              <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stopColor="#22C55E" />
+                <stop offset="50%" stopColor="#EAB308" />
+                <stop offset="100%" stopColor="#EF4444" />
+              </linearGradient>
+            </defs>
+            {/* Needle */}
+            <g transform={`rotate(${angle}, 100, 100)`} style={{ transition: 'transform 0.6s ease-out' }}>
+              <line x1="100" y1="100" x2="100" y2="30" stroke={scoreColor} strokeWidth="3" strokeLinecap="round" />
+              <circle cx="100" cy="100" r="5" fill={scoreColor} />
+            </g>
+            <text x="20" y="115" fill="#555B66" fontFamily="Space Mono" fontSize="10" textAnchor="middle">0</text>
+            <text x="100" y="20" fill="#555B66" fontFamily="Space Mono" fontSize="10" textAnchor="middle">50</text>
+            <text x="180" y="115" fill="#555B66" fontFamily="Space Mono" fontSize="10" textAnchor="middle">100</text>
+          </svg>
+        </div>
+      </div>
 
-        {/* Needle */}
-        <g transform={`rotate(${angle}, 100, 100)`}>
-          <line x1="100" y1="100" x2="100" y2="30" stroke={score != null ? getZoneColor(score) : '#555B66'} strokeWidth="2.5" strokeLinecap="round" />
-          <circle cx="100" cy="100" r="5" fill={score != null ? getZoneColor(score) : '#555B66'} />
-        </g>
+      {/* 24H HISTORY SPARKLINE */}
+      <div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+          <span style={{ fontFamily: "Arial, sans-serif", fontSize: 10, color: '#8892A0' }}>24H HISTORY</span>
+          <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 9, color: '#555B66' }}>{history.length} readings</span>
+        </div>
+        <div style={{ height: 60 }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={history}>
+              <Area type="monotone" dataKey="irs" stroke="#F97316" fill="#F97316" fillOpacity={0.1} strokeWidth={2} isAnimationActive={false} />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
 
-        {/* Score text */}
-        <text x="100" y="98" textAnchor="middle" fill="#FFFFFF" fontFamily="Space Mono, monospace" fontSize="18" fontWeight="700">
-          {score != null ? Math.round(score) : 'N/A'}
-        </text>
-      </svg>
+      {/* CONTRIBUTING FACTORS */}
+      <div>
+        <div style={{ fontFamily: "Arial, sans-serif", fontSize: 10, color: '#8892A0', marginBottom: 8 }}>CONTRIBUTING FACTORS</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {factors && Object.entries(factors).map(([k, v]) => {
+            const barColor = getZoneColor(v.score);
+            return (
+              <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontFamily: "Arial, sans-serif", fontSize: 10, color: '#CCC', width: 120 }}>
+                  {v.label}
+                </span>
+                <div style={{ flex: 1, height: 4, background: '#1A1A2E', borderRadius: 2, overflow: 'hidden' }}>
+                  <div style={{
+                    width: `${v.score}%`,
+                    height: '100%',
+                    background: barColor,
+                    transition: 'width 0.6s ease'
+                  }} />
+                </div>
+                <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: barColor, width: 30, textAlign: 'right' }}>
+                  <AnimatedValue value={v.score} color={barColor} />
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
 
-      <div style={{
-        fontFamily: "'Space Mono', monospace",
-        fontSize: 11,
-        color: score != null ? getZoneColor(score) : '#555B66',
-        fontWeight: 700,
-        marginTop: 4,
-        letterSpacing: '0.1em',
-      }}>
-        {label || (score != null ? (score >= 80 ? 'CRITICAL' : score >= 60 ? 'ELEVATED' : score >= 35 ? 'CAUTION' : 'STABLE') : 'N/A')}
+      {/* TOP RISK DRIVERS */}
+      <div>
+        <div style={{ fontFamily: "Arial, sans-serif", fontSize: 10, color: '#8892A0', marginBottom: 8 }}>TOP RISK DRIVERS</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {(top_risk_drivers || []).slice(0, 3).map((item, i) => (
+            <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}>
+              <span style={{ color: '#EF4444', fontSize: 12 }}>⚠</span>
+              <span style={{ fontFamily: "Arial, sans-serif", fontSize: 11, color: '#CCC', lineHeight: 1.3 }}>
+                {item.headline.length > 60 ? item.headline.substring(0, 60) + '...' : item.headline}
+              </span>
+            </div>
+          ))}
+          {(!top_risk_drivers || top_risk_drivers.length === 0) && (
+            <span style={{ fontFamily: "Arial, sans-serif", fontSize: 11, color: '#555B66' }}>No active danger signals.</span>
+          )}
+        </div>
+      </div>
+
+      {/* GRADIENT BAR */}
+      <div style={{ marginTop: 8 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontFamily: "'Space Mono', monospace", fontSize: 9, color: '#8892A0' }}>
+          <span>LOW RISK</span>
+          <span>MODERATE</span>
+          <span>ELEVATED</span>
+          <span>EXTREME</span>
+        </div>
+        <div style={{ position: 'relative', height: 8, borderRadius: 4, background: 'linear-gradient(90deg, #22C55E 0%, #EAB308 50%, #EF4444 80%, #7F1D1D 100%)' }}>
+          <div style={{
+            position: 'absolute',
+            left: `${irs}%`,
+            top: -4,
+            width: 4,
+            height: 16,
+            background: '#FFF',
+            borderRadius: 2,
+            boxShadow: '0 0 4px rgba(0,0,0,0.5)',
+            transform: 'translateX(-50%)',
+            transition: 'left 0.6s ease'
+          }} />
+        </div>
+        <div style={{ textAlign: 'center', marginTop: 12, fontFamily: "'Space Mono', monospace", fontSize: 10, color: '#8892A0' }}>
+          IRS {irs}/100 — <span style={{ color: modeColor }}>{mode} ACTIVE</span>
+        </div>
       </div>
     </div>
   );
@@ -239,6 +362,8 @@ export default function Pulse({ liveData }) {
   const [gtiData, setGtiData] = useState(null);
   const [sectors, setSectors] = useState([]);
   const [news, setNews] = useState([]);
+  const [irsData, setIrsData] = useState(null);
+  const [irsHistory, setIrsHistory] = useState([]);
   const [flashCards, setFlashCards] = useState(false);
   const prevDataRef = useRef(null);
 
@@ -248,19 +373,26 @@ export default function Pulse({ liveData }) {
       const safeFetch = (url, fallback = null) =>
         fetch(url).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }).catch(() => fallback);
 
-      const [sig, fii, gti, sec, newsData] = await Promise.all([
+      const [sig, fii, sec, newsData, irsResp] = await Promise.all([
         safeFetch('/api/signals'),
         safeFetch('/api/fii-dii'),
-        safeFetch('/api/gdelt/india-events'),
         safeFetch('/api/sector-performance'),
         safeFetch('/api/geopolitical-news'),
+        safeFetch('/api/india-risk-score')
       ]);
 
       if (sig) setSignals(sig);
       if (fii) setFiiDii(fii);
-      if (gti) setGtiData(gti);
       if (sec?.data) setSectors(sec.data);
       if (newsData?.items) setNews(newsData.items);
+      
+      if (irsResp) {
+        setIrsData(irsResp);
+        setIrsHistory(prev => {
+           const newHist = [...prev, { time: new Date().toLocaleTimeString(), irs: irsResp.irs }];
+           return newHist.slice(-30);
+        });
+      }
     };
 
     fetchAll();
@@ -273,12 +405,19 @@ export default function Pulse({ liveData }) {
       } catch {}
     }, 5 * 60 * 1000);
 
-    const gtiInterval = setInterval(async () => {
+    const irsInterval = setInterval(async () => {
       try {
-        const r = await fetch('/api/gdelt/india-events');
-        if (r.ok) setGtiData(await r.json());
+        const r = await fetch('/api/india-risk-score');
+        if (r.ok) {
+           const d = await r.json();
+           setIrsData(d);
+           setIrsHistory(prev => {
+              const newHist = [...prev, { time: new Date().toLocaleTimeString(), irs: d.irs }];
+              return newHist.slice(-30);
+           });
+        }
       } catch {}
-    }, 15 * 60 * 1000);
+    }, 10 * 60 * 1000);
 
     const sectorInterval = setInterval(async () => {
       try {
@@ -302,7 +441,7 @@ export default function Pulse({ liveData }) {
 
     return () => {
       clearInterval(fiiInterval);
-      clearInterval(gtiInterval);
+      clearInterval(irsInterval);
       clearInterval(sectorInterval);
       clearInterval(newsInterval);
     };
@@ -313,6 +452,14 @@ export default function Pulse({ liveData }) {
     if (liveData) {
       setSignals(liveData);
       if (liveData.NEWS) setNews(liveData.NEWS);
+      if (liveData.irs != null) {
+          setIrsData(prev => prev ? { ...prev, irs: liveData.irs } : null);
+          setIrsHistory(prev => {
+              if (prev.length > 0 && prev[prev.length - 1].irs === liveData.irs) return prev;
+              const newHist = [...prev, { time: new Date().toLocaleTimeString(), irs: liveData.irs }];
+              return newHist.slice(-30);
+          });
+      }
       // Flash cards on update
       if (prevDataRef.current) {
         setFlashCards(true);
@@ -361,7 +508,6 @@ export default function Pulse({ liveData }) {
               change={d?.change}
               pChange={d?.pChange}
               direction={d?.direction}
-              flash={flashCards}
             />
           );
         })}
@@ -402,7 +548,7 @@ export default function Pulse({ liveData }) {
                   fontWeight: 700,
                   color: fiiNet != null ? (fiiNet >= 0 ? '#00FF88' : '#FF4444') : '#555B66',
                 }}>
-                  {fiiNet != null ? `₹${fiiNet.toLocaleString('en-IN')} Cr` : 'N/A'}
+                  {fiiNet != null ? <><AnimatedValue value={fiiNet} /> <span style={{ fontSize: 14 }}>Cr</span></> : 'N/A'}
                 </div>
               </div>
               <div style={{ marginBottom: 12 }}>
@@ -413,7 +559,7 @@ export default function Pulse({ liveData }) {
                   fontWeight: 700,
                   color: diiNet != null ? (diiNet >= 0 ? '#00FF88' : '#FF4444') : '#555B66',
                 }}>
-                  {diiNet != null ? `₹${diiNet.toLocaleString('en-IN')} Cr` : 'N/A'}
+                  {diiNet != null ? <><AnimatedValue value={diiNet} /> <span style={{ fontSize: 14 }}>Cr</span></> : 'N/A'}
                 </div>
               </div>
               <div style={{
@@ -445,8 +591,8 @@ export default function Pulse({ liveData }) {
           )}
         </div>
 
-        {/* CENTER: GTI GAUGE */}
-        <GtiGauge score={gtiData?.gti} label={gtiData?.gti_label} />
+        {/* CENTER: IRS WIDGET */}
+        <IrsWidget irsData={irsData} history={irsHistory} />
 
         {/* RIGHT: SECTOR HEATMAP */}
         <SectorHeatmap sectors={sectors} />
