@@ -303,6 +303,30 @@ async def api_sparklines():
     set_cached("sparklines", res, 1800) # cache for 30 mins to avoid yf limits
     return res
 
+@app.get("/api/fii-dii")
+async def api_fii_dii():
+    cached = get_cached("fii_dii")
+    if cached: return cached
+    loop = asyncio.get_event_loop()
+    try:
+        res = await loop.run_in_executor(None, _nse.fetch_fii_dii)
+        if res: set_cached("fii_dii", res, 300)
+        return res
+    except:
+        return {}
+
+@app.get("/api/sector-performance")
+async def api_sectors():
+    cached = get_cached("sectors")
+    if cached: return cached
+    loop = asyncio.get_event_loop()
+    try:
+        res = await loop.run_in_executor(None, _nse.fetch_sectors)
+        if res: set_cached("sectors", res, 600)
+        return {"data": res if res else []}
+    except:
+        return {"data": []}
+
 # ── Frontend SPA ──
 DIST_DIR = BASE_DIR / "frontend" / "dist"
 logger.info(f"Frontend dist: {DIST_DIR} (exists={DIST_DIR.exists()})")
