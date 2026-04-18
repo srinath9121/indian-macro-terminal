@@ -138,6 +138,26 @@ async def unified_sync_service():
                     }
                 except Exception: continue
 
+            # fallback for yfinance ^NSEI failing
+            if "NIFTY" not in m_res:
+                try:
+                    from src.nse_session import nse_session_manager
+                    sess = nse_session_manager.get_session()
+                    resp = await loop.run_in_executor(None, lambda: sess.get("https://www.nseindia.com/api/allIndices", timeout=5))
+                    for item in resp.json().get('data', []):
+                        if item.get('index') == "NIFTY 50":
+                            curr = float(item.get('last', 0))
+                            ch = float(item.get('variation', 0))
+                            m_res["NIFTY"] = {
+                                "price": curr,
+                                "change": ch,
+                                "pChange": float(item.get('percentChange', 0)),
+                                "is_up": ch >= 0,
+                            }
+                            break
+                except Exception as e:
+                    logger.warning(f"NSE fallback failed: {e}")
+
             # ── Commodities ──
             c_res = []
             pulse_extra = {}
