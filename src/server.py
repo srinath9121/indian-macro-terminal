@@ -13,11 +13,13 @@ from pathlib import Path
 
 import yfinance as yf
 import pytz
+from nse_fetcher import NSEMoversFetcher
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import uvicorn
+import time
 from contextlib import asynccontextmanager
 
 # ─────────────────────────────────────────────────────
@@ -59,6 +61,22 @@ MARKET_TICKERS = {
     "USD/INR":   "USDINR=X",
     "INDIAVIX":  "^INDIAVIX",
 }
+
+# ─────────────────────────────────────────────────────
+# CACHE
+# ─────────────────────────────────────────────────────
+_CACHE = {}
+_CACHE_EXPR = {}
+def get_cached(key):
+    if key in _CACHE and time.time() < _CACHE_EXPR.get(key, 0):
+        return _CACHE[key]
+    return None
+
+def set_cached(key, val, ttl=300):
+    _CACHE[key] = val
+    _CACHE_EXPR[key] = time.time() + ttl
+
+_nse = NSEMoversFetcher()
 
 # ─────────────────────────────────────────────────────
 # GLOBAL STATE
@@ -252,6 +270,38 @@ async def api_irs():
         "zone": "ELEVATED" if sig.get("irs", 52) >= 60 else "MODERATE",
         "updated_at": GLOBAL_STATE["last_sync"],
     }
+
+@app.get("/api/market/movers")
+async def api_market_movers():
+    cached = get_cached("movers")
+    if cached: return cached
+    loop = asyncio.get_event_loop()
+    try:
+        res = await loop.run_in_executor(None, _nse.fetch)
+        if res: set_cached("movers", res, 300)
+        return res
+    except:
+        return {}
+
+@app.get("/api/index-sparklines")
+async def api_sparklines():
+    cached = get_cached("sparklines")
+    if cached: return cached
+    loop = asyncio.get_event_loop()
+    def _fetch():
+        tickers = {"NIFTY 50": "^NSEI", "SENSEX": "^BSESN", "BANKNIFTY": "^NSEBANK"}
+        result = {}
+        for name, sym in tickers.items():
+            try:
+                h = yf.Ticker(sym).history(period="5d", interval="1h")
+                if not h.empty:
+                    result[name] = [{"close": round(float(v), 2)} for v in h['Close'].dropna().tolist()[-24:]]
+            except:
+                pass
+        return result
+    res = await loop.run_in_executor(None, _fetch)
+    set_cached("sparklines", res, 1800) # cache for 30 mins to avoid yf limits
+    return res
 
 # ── Frontend SPA ──
 DIST_DIR = BASE_DIR / "frontend" / "dist"
