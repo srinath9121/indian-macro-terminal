@@ -13,3 +13,4 @@ httpx
 pydantic
 nse
 websockets
+PyPDF2
