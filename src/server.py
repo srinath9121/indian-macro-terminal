@@ -17,7 +17,7 @@ from pathlib import Path
 import yfinance as yf
 import feedparser
 import pytz
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import httpx
@@ -305,9 +305,20 @@ async def ws_heartbeat_loop():
 # ─────────────────────────────────────────────────────
 # API ROUTES
 # ─────────────────────────────────────────────────────
-@app.get("/")
-async def root():
-    return {"engine": "Render", "status": "Live", "time": datetime.now(IST).isoformat()}
+# Serve Frontend (Production)
+DIST_DIR = BASE_DIR / "frontend" / "dist"
+if DIST_DIR.exists():
+    app.mount("/assets", StaticFiles(directory=DIST_DIR / "assets"), name="assets")
+
+    @app.get("/{full_path:path}")
+    async def serve_react_app(full_path: str):
+        # API routes are already handled above by FastAPI's priority matching
+        # All other routes should serve the React SPA
+        return FileResponse(DIST_DIR / "index.html")
+else:
+    @app.get("/")
+    async def root():
+        return {"engine": "Render", "status": "Live", "time": datetime.now(IST).isoformat(), "msg": "Frontend build not found locally."}
 
 @app.get("/api/signals")
 @cached("signals", 60)
