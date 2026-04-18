@@ -27,5 +27,5 @@ COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 
 EXPOSE 8080
 
-# Using shell to ensure environment variables are expanded correctly
-CMD ["sh", "-c", "uvicorn src.server:app --host 0.0.0.0 --port ${PORT:-8080}"]
+# Use the hardened Python entrypoint for automatic port sensing
+CMD ["python", "src/server.py"]
