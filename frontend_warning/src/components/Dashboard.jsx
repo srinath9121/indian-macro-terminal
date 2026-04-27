@@ -3,68 +3,59 @@ import { PieChart, Pie, ResponsiveContainer } from 'recharts';
 
 const ADANI_STOCKS = [
   'ADANIENT', 'ADANIPORTS', 'ADANIGREEN', 'ADANIPOWER', 'ATGL', 
-  'AWL', 'ADANIENSOL', 'ACC', 'AMBUJACEM', 'NDTV'
+  'ADANIWILM', 'ADANIENSOL', 'ACC', 'AMBUJACEM', 'NDTV'
 ];
 
-// ────── MOCK DATA ──────
-const generateDashboardData = () => {
-  const stocks = ADANI_STOCKS.map(symbol => {
-    const dangerScore = Math.floor(Math.random() * 80 + 10); // 10 to 90
-    const price = (Math.random() * 3000 + 100).toFixed(2);
-    const isUp = Math.random() > 0.5;
-    const pct = (Math.random() * 5).toFixed(2);
-    
-    // Layers
-    const layers = [
-      { name: 'OPTIONS', score: Math.random() * 100 },
-      { name: 'MACRO', score: Math.random() * 100 },
-      { name: 'LEGAL', score: Math.random() * 100 },
-      { name: 'SMART', score: Math.random() * 100 },
-      { name: 'SENTIMENT', score: Math.random() * 100 },
-    ];
-    // Find most active
-    layers.sort((a, b) => b.score - a.score);
-    const activeLayerName = layers[0].name;
+const getStatus = (s) => s > 80 ? 'critical' : s > 60 ? 'active' : s > 35 ? 'watch' : 'clear';
 
-    const getStatus = (s) => s > 80 ? 'critical' : s > 60 ? 'active' : s > 35 ? 'watch' : 'clear';
-
-    return {
-      symbol,
-      name: symbol === 'ATGL' ? 'Adani Total Gas' : symbol === 'AWL' ? 'Adani Wilmar' : symbol + ' Ltd',
-      price,
-      pct,
-      isUp,
-      dangerScore,
-      activeLayerName,
-      layersStatus: {
-        OPTIONS: getStatus(layers.find(l => l.name === 'OPTIONS').score),
-        MACRO: getStatus(layers.find(l => l.name === 'MACRO').score),
-        LEGAL: getStatus(layers.find(l => l.name === 'LEGAL').score),
-        SMART: getStatus(layers.find(l => l.name === 'SMART').score),
-        SENTIMENT: getStatus(layers.find(l => l.name === 'SENTIMENT').score),
-      }
-    };
-  });
-
-  // Sort descending by danger score
-  stocks.sort((a, b) => b.dangerScore - a.dangerScore);
-
-  const avgPct = stocks.reduce((acc, s) => acc + (s.isUp ? parseFloat(s.pct) : -parseFloat(s.pct)), 0) / stocks.length;
-
-  const divergences = stocks.map(s => {
-    const sPct = s.isUp ? parseFloat(s.pct) : -parseFloat(s.pct);
-    if (sPct > 1 && avgPct < -0.5) return { symbol: s.symbol, type: 'DIVERGENCE', desc: `Up ${s.pct}% while group is down` };
-    if (sPct < -1 && avgPct > 0.5) return { symbol: s.symbol, type: 'UNDERPERFORMING', desc: `Down ${s.pct}% while group is up` };
-    return null;
-  }).filter(Boolean);
-
-  const alerts = [
-    { time: '10:45 AM', stock: stocks[0].symbol, layer: 'OPTIONS ANOMALY', score: stocks[0].dangerScore, action: 'PCR Spike > 1.8x' },
-    { time: '09:30 AM', stock: stocks[1].symbol, layer: 'SENTIMENT VELOCITY', score: stocks[1].dangerScore, action: 'Negative News Surge' },
-    { time: 'Yesterday', stock: 'ADANIGREEN', layer: 'LEGAL RADAR', score: 75, action: 'New regulatory filing detected' }
-  ];
-
-  return { stocks, avgPct, divergences, alerts };
+const fetchDashboardData = async () => {
+  try {
+    const resp = await fetch('/warning/api/danger-score/batch');
+    if (!resp.ok) throw new Error('API error');
+    const batchData = await resp.json();
+    const stocks = (batchData.stocks || [])
+      .filter(s => ADANI_STOCKS.includes(s.symbol))
+      .map(s => {
+        const layers = s.layers || {};
+        const layerEntries = [
+          { name: 'OPTIONS', score: layers.options_anomaly || 0 },
+          { name: 'MACRO', score: layers.macro_pressure || 0 },
+          { name: 'LEGAL', score: layers.legal_risk || 0 },
+          { name: 'SMART', score: layers.smart_money || 0 },
+          { name: 'SENTIMENT', score: layers.sentiment_velocity || 0 },
+        ];
+        layerEntries.sort((a, b) => b.score - a.score);
+        return {
+          symbol: s.symbol,
+          name: s.symbol + ' Ltd',
+          price: '—',
+          pct: '—',
+          isUp: true,
+          dangerScore: s.danger_score || 0,
+          activeLayerName: layerEntries[0].name,
+          layersStatus: {
+            OPTIONS: getStatus(layers.options_anomaly || 0),
+            MACRO: getStatus(layers.macro_pressure || 0),
+            LEGAL: getStatus(layers.legal_risk || 0),
+            SMART: getStatus(layers.smart_money || 0),
+            SENTIMENT: getStatus(layers.sentiment_velocity || 0),
+          }
+        };
+      });
+    stocks.sort((a, b) => b.dangerScore - a.dangerScore);
+    const alerts = stocks.filter(s => s.dangerScore > 35).map(s => ({
+      time: 'Now', stock: s.symbol, layer: s.activeLayerName + ' ANOMALY',
+      score: s.dangerScore, action: `Danger score at ${s.dangerScore}/100`
+    })).slice(0, 3);
+    return { stocks, avgPct: 0, divergences: [], alerts };
+  } catch (e) {
+    console.warn('Dashboard fetch failed, using offline:', e);
+    return { stocks: ADANI_STOCKS.map(symbol => ({
+      symbol, name: symbol + ' Ltd', price: '—', pct: '—', isUp: true,
+      dangerScore: 0, activeLayerName: 'NONE',
+      layersStatus: { OPTIONS: 'loading', MACRO: 'loading', LEGAL: 'loading', SMART: 'loading', SENTIMENT: 'loading' }
+    })), avgPct: 0, divergences: [], alerts: [{ time: 'Now', stock: 'SYSTEM', layer: 'DATA', score: 0, action: 'Waiting for market data...' }] };
+  }
 };
 
 // ────── SEMI-CIRCLE GAUGE ──────
@@ -106,7 +97,9 @@ export default function Dashboard({ onSelectStock }) {
   const [data, setData] = useState(null);
 
   useEffect(() => {
-    setData(generateDashboardData());
+    fetchDashboardData().then(setData);
+    const id = setInterval(() => fetchDashboardData().then(setData), 300000); // 5min
+    return () => clearInterval(id);
   }, []);
 
   if (!data) return null;

@@ -4,48 +4,28 @@ import {
   LineChart, Line
 } from 'recharts';
 
-// ────── MOCK DATA ──────
-const generateNewsData = (symbol) => {
-  const velocityData = [];
-  const sentimentData = [];
-  const headlines = [];
-  
-  let date = new Date();
-  date.setDate(date.getDate() - 6);
-  
-  const baseline = 15; // baseline article count
-
-  for (let i = 0; i < 7; i++) {
-    const dStr = new Date(date).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' });
-    
-    // Spike on last two days
-    let count = i >= 5 ? Math.floor(baseline * 2.5 + Math.random() * 10) : Math.floor(baseline + Math.random() * 5 - 2);
-    let sentiment = i >= 5 ? -0.6 + Math.random() * 0.2 : 0.1 + Math.random() * 0.3;
-    
-    velocityData.push({ date: dStr, count });
-    sentimentData.push({ date: dStr, sentiment: parseFloat(sentiment.toFixed(2)) });
-    
-    date.setDate(date.getDate() + 1);
+// ────── FETCH REAL DATA ──────
+const fetchNewsData = async (symbol) => {
+  try {
+    const resp = await fetch(`/warning/api/sentiment-velocity/${symbol}`);
+    if (!resp.ok) throw new Error('API error');
+    const d = await resp.json();
+    const now = new Date().toLocaleDateString('en-IN', { month: 'short', day: 'numeric' });
+    const velocityData = [{ date: now, count: (d.recent_headlines || []).length }];
+    const sentimentData = [{ date: now, sentiment: d.now_avg_sentiment || 0 }];
+    const headlines = (d.recent_headlines || []).map((h, i) => ({
+      id: i, badge: h.sentiment || 'NEUTRAL',
+      headline: h.headline, source: h.source || 'RSS',
+      time: h.time || 'Recent',
+      score: h.sentiment_score || 0,
+    }));
+    return { velocityData, sentimentData, headlines, baseline: 5,
+      velocity: d.velocity || 0, rateSpike: d.headline_rate_spike || 1, signal: d.signal || 'STABLE' };
+  } catch (e) {
+    console.warn('NewsTab fetch error:', e);
+    return { velocityData: [], sentimentData: [], headlines: [], baseline: 5,
+      velocity: 0, rateSpike: 1, signal: 'OFFLINE' };
   }
-
-  const sources = ['Economic Times', 'Hindu BusinessLine', 'Reuters', 'Bloomberg'];
-  const badges = ['BEARISH', 'BEARISH', 'NEUTRAL', 'BEARISH', 'BULLISH', 'NEUTRAL'];
-  
-  for (let i = 0; i < 20; i++) {
-    const isRecent = i < 8; // more bearish recently
-    const badge = isRecent ? (Math.random() > 0.3 ? 'BEARISH' : 'NEUTRAL') : badges[Math.floor(Math.random() * badges.length)];
-    const source = sources[Math.floor(Math.random() * sources.length)];
-    
-    headlines.push({
-      id: i,
-      badge,
-      headline: `${symbol} faces new regulatory scrutiny over offshore holdings and disclosures.`,
-      source,
-      time: i === 0 ? '10 mins ago' : i < 5 ? `${i} hours ago` : '1 day ago'
-    });
-  }
-
-  return { velocityData, sentimentData, headlines, baseline };
 };
 
 // ────── TOOLTIPS ──────
@@ -79,13 +59,13 @@ export default function NewsTab({ symbol }) {
   const [data, setData] = useState(null);
 
   useEffect(() => {
-    setData(generateNewsData(symbol));
+    fetchNewsData(symbol).then(setData);
   }, [symbol]);
 
-  if (!data) return null;
+  if (!data) return <div style={{ padding: 40, textAlign: 'center', color: '#6B7280' }}>Loading news...</div>;
 
-  const todayCount = data.velocityData[6].count;
-  const isElevated = todayCount > data.baseline * 2;
+  const todayCount = data.velocityData.length > 0 ? data.velocityData[data.velocityData.length - 1].count : 0;
+  const isElevated = data.rateSpike > 2;
 
   const getSourceColor = (source) => {
     if (source.includes('Economic Times')) return '#EA580C';

@@ -1,30 +1,20 @@
 import { useState, useEffect } from 'react';
 
-// ────── MOCK DATA ──────
-const generateLegalData = (symbol) => {
-  const isAdani = symbol.startsWith('ADANI') || symbol === 'AWL' || symbol === 'ATGL' || symbol === 'ACC' || symbol === 'AMBUJACEM' || symbol === 'NDTV';
-  
-  // For demo, we trigger alerts if it's an Adani stock
-  const hasAlert = isAdani;
-
-  return {
-    usLegal: hasAlert ? [
-      { date: 'Nov 20, 2024', court: 'EDNY', title: 'USA v. Adani et al', type: 'Indictment', link: '#', isNew: true },
-      { date: 'Mar 15, 2024', court: 'EDNY', title: 'Grand Jury Subpoena', type: 'Subpoena', link: '#', isNew: false },
-      { date: 'Jan 24, 2023', court: 'SDNY', title: 'Hindenburg Research LLC', type: 'Report', link: '#', isNew: false }
-    ] : [],
-    sebi: hasAlert ? [
-      { date: 'Oct 12, 2024', court: 'SEBI', title: 'Show Cause Notice - FPI Holding', type: 'Notice', link: '#', isNew: true },
-      { date: 'Aug 25, 2023', court: 'SEBI', title: 'Investigation Report Status', type: 'Update', link: '#', isNew: false }
-    ] : [],
-    pib: hasAlert ? [
-      { date: 'Nov 18, 2024', court: 'MoP', title: 'Solar Energy Contract Award', type: 'Positive', link: '#', isNew: true },
-      { date: 'Sep 05, 2024', court: 'MoEFCC', title: 'Environmental Clearance Notice', type: 'Risk', link: '#', isNew: false }
-    ] : [],
-    supremeCourt: hasAlert ? [
-      { date: 'Jan 03, 2024', court: 'SCI', title: 'PIL - Hindenburg Probe', status: 'DISPOSED', link: '#' }
-    ] : []
-  };
+// ────── FETCH REAL DATA ──────
+const fetchLegalData = async (symbol) => {
+  try {
+    const resp = await fetch(`/warning/api/legal/${symbol}`);
+    if (!resp.ok) throw new Error('API error');
+    const d = await resp.json();
+    const filings = d.filings || [];
+    const usLegal = filings.filter(f => f.source === 'CourtListener').map(f => ({ ...f, isNew: f.days_ago < 30 }));
+    const sebi = filings.filter(f => f.source === 'SEBI').map(f => ({ ...f, isNew: f.days_ago < 30 }));
+    const pib = filings.filter(f => f.source === 'PIB').map(f => ({ ...f, type: 'Notice', isNew: true }));
+    return { usLegal, sebi, pib, supremeCourt: [], legalScore: d.legal_score || {} };
+  } catch (e) {
+    console.warn('LegalTab fetch error:', e);
+    return { usLegal: [], sebi: [], pib: [], supremeCourt: [], legalScore: {} };
+  }
 };
 
 const LegalSection = ({ title, data, type }) => {
@@ -103,10 +93,10 @@ export default function LegalTab({ symbol }) {
   const [data, setData] = useState(null);
 
   useEffect(() => {
-    setData(generateLegalData(symbol));
+    fetchLegalData(symbol).then(setData);
   }, [symbol]);
 
-  if (!data) return null;
+  if (!data) return <div style={{ padding: 40, textAlign: 'center', color: '#6B7280' }}>Loading legal data...</div>;
 
   return (
     <div style={{ animation: 'fadeIn 0.3s ease' }}>
