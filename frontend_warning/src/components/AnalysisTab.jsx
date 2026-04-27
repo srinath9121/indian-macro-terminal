@@ -57,22 +57,18 @@ const getNov2024Data = () => {
   return data;
 };
 
-const getPresentData = () => {
-  const data = [];
-  let price = 3100;
-  let danger = 45;
-  const start = new Date();
-  start.setDate(start.getDate() - 60);
-  
-  for (let i = 0; i < 60; i++) {
-    const dStr = new Date(start).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' });
-    price += (Math.random() * 60 - 25);
-    danger = Math.min(100, Math.max(0, danger + (Math.random() * 10 - 4.5)));
-    
-    data.push({ date: dStr, price: Math.floor(price), dangerScore: Math.floor(danger) });
-    start.setDate(start.getDate() + 1);
+const fetchPresentData = async (symbol) => {
+  try {
+    const resp = await fetch(`/warning/api/danger-score/${symbol}`);
+    if (!resp.ok) throw new Error('API error');
+    const d = await resp.json();
+    const now = new Date().toLocaleDateString('en-IN', { month: 'short', day: 'numeric' });
+    return [{ date: now, price: 0, dangerScore: d.danger_score || 0 }];
+  } catch (e) {
+    console.warn('AnalysisTab fetch error:', e);
+    const now = new Date().toLocaleDateString('en-IN', { month: 'short', day: 'numeric' });
+    return [{ date: now, price: 0, dangerScore: 0 }];
   }
-  return data;
 };
 
 // ────── CUSTOM TOOLTIP ──────
@@ -95,7 +91,7 @@ export default function AnalysisTab({ symbol }) {
   const [pastData, setPastData] = useState([]);
 
   useEffect(() => {
-    setPresentData(getPresentData());
+    fetchPresentData(symbol).then(setPresentData);
   }, [symbol]);
 
   useEffect(() => {

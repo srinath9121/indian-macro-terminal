@@ -1,27 +1,30 @@
 import { useState, useEffect } from 'react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 
-// ────── MOCK DATA GENERATION ──────
-const generateChartData = () => {
-  let data = [];
-  let currentPrice = 3000;
-  let date = new Date();
-  date.setDate(date.getDate() - 30); // 30 days data
-
-  for (let i = 0; i < 30; i++) {
-    currentPrice = currentPrice + (Math.random() * 100 - 45);
-    let dangerEvent = i === 15 || i === 28 ? true : false;
-    let dangerScore = dangerEvent ? Math.floor(Math.random() * 20 + 80) : Math.floor(Math.random() * 30 + 10);
-    
-    data.push({
-      date: new Date(date).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' }),
-      price: currentPrice,
-      dangerEvent: dangerEvent,
-      dangerScore: dangerScore
-    });
-    date.setDate(date.getDate() + 1);
-  }
-  return data;
+// ────── FETCH REAL DATA ──────
+const fetchOverviewData = async (symbol) => {
+  const result = { chartData: [], dangerScore: 0, signal: 'CLEAR', layers: {}, options: {}, macro: {}, legal: {}, smart: {}, sentiment: {} };
+  try {
+    const [dangerResp, optsResp, macroResp, legalResp, smartResp, sentResp] = await Promise.all([
+      fetch(`/warning/api/danger-score/${symbol}`),
+      fetch(`/warning/api/options/${symbol}`),
+      fetch(`/warning/api/macro-pressure/${symbol}`),
+      fetch(`/warning/api/legal/${symbol}`),
+      fetch(`/warning/api/smart-money/${symbol}`),
+      fetch(`/warning/api/sentiment-velocity/${symbol}`),
+    ]);
+    if (dangerResp.ok) { const d = await dangerResp.json(); result.dangerScore = d.danger_score || 0; result.signal = d.final_signal || 'CLEAR'; result.layers = d.layers || {}; result.activeCount = d.active_count || 0; }
+    if (optsResp.ok) { result.options = await optsResp.json(); }
+    if (macroResp.ok) { result.macro = await macroResp.json(); }
+    if (legalResp.ok) { result.legal = await legalResp.json(); }
+    if (smartResp.ok) { result.smart = await smartResp.json(); }
+    if (sentResp.ok) { result.sentiment = await sentResp.json(); }
+    // Build single-point chart from current data
+    const now = new Date().toLocaleDateString('en-IN', { month: 'short', day: 'numeric' });
+    const spot = result.options?.chain?.spot || 0;
+    result.chartData = [{ date: now, price: spot, dangerEvent: result.dangerScore > 60, dangerScore: result.dangerScore }];
+  } catch (e) { console.warn('OverviewTab fetch error:', e); }
+  return result;
 };
 
 // ────── CUSTOM TOOLTIP ──────
@@ -48,28 +51,38 @@ const CustomTooltip = ({ active, payload, label }) => {
 };
 
 export default function OverviewTab({ symbol }) {
-  const [chartData, setChartData] = useState([]);
+  const [data, setData] = useState(null);
   const [timeframe, setTimeframe] = useState('1M');
   const [barsWidth, setBarsWidth] = useState(false);
 
   useEffect(() => {
-    setChartData(generateChartData());
-    // Trigger bar animation
-    setTimeout(() => setBarsWidth(true), 100);
+    fetchOverviewData(symbol).then(d => { setData(d); setTimeout(() => setBarsWidth(true), 100); });
   }, [symbol, timeframe]);
 
-  const openPrice = chartData.length > 0 ? chartData[0].price : 3000;
-  const currentPrice = chartData.length > 0 ? chartData[chartData.length - 1].price : 3000;
-  const isUp = currentPrice >= openPrice;
-  const strokeColor = isUp ? '#10B981' : '#EF4444';
+  if (!data) return <div style={{ padding: 40, textAlign: 'center', color: '#6B7280' }}>Loading overview...</div>;
 
+  const chartData = data.chartData;
+  const spotPrice = data.options?.chain?.spot || 0;
+  const isUp = spotPrice > 0;
+  const strokeColor = '#3B82F6';
+
+  const getColor = (s) => s > 75 ? '#DC2626' : s > 50 ? '#EA580C' : s > 25 ? '#D97706' : '#16A34A';
+  const getStatus = (s) => s > 75 ? 'CRITICAL' : s > 50 ? 'WARNING' : s > 25 ? 'WATCH' : 'CLEAR';
+  const ls = data.layers;
   const layers = [
-    { name: 'OPTIONS ANOMALY', score: 85, color: '#DC2626', status: 'CRITICAL' },
-    { name: 'MACRO PRESSURE', score: 45, color: '#D97706', status: 'ACTIVE' },
-    { name: 'LEGAL RADAR', score: 25, color: '#16A34A', status: 'CLEAR' },
-    { name: 'SMART MONEY', score: 72, color: '#EA580C', status: 'WARNING' },
-    { name: 'SENTIMENT VELOCITY', score: 65, color: '#EA580C', status: 'WARNING' }
+    { name: 'OPTIONS ANOMALY', score: ls.options_anomaly || 0, color: getColor(ls.options_anomaly || 0), status: getStatus(ls.options_anomaly || 0) },
+    { name: 'MACRO PRESSURE', score: ls.macro_pressure || 0, color: getColor(ls.macro_pressure || 0), status: getStatus(ls.macro_pressure || 0) },
+    { name: 'LEGAL RADAR', score: ls.legal_risk || 0, color: getColor(ls.legal_risk || 0), status: getStatus(ls.legal_risk || 0) },
+    { name: 'SMART MONEY', score: ls.smart_money || 0, color: getColor(ls.smart_money || 0), status: getStatus(ls.smart_money || 0) },
+    { name: 'SENTIMENT VELOCITY', score: ls.sentiment_velocity || 0, color: getColor(ls.sentiment_velocity || 0), status: getStatus(ls.sentiment_velocity || 0) }
   ];
+
+  const pcr = data.options?.chain?.pcr || data.options?.anomaly?.pcr || 0;
+  const pcrDev = data.options?.anomaly?.pcr_deviation_pct || 0;
+  const macroSignal = data.macro?.signal || 'LOW';
+  const legalStatus = data.legal?.legal_score?.status || 'CLEAR';
+  const legalCount = data.legal?.legal_score?.recent_filing_count || 0;
+  const pledgePct = data.smart?.pledge_pct || 0;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24, animation: 'fadeIn 0.3s ease' }}>
@@ -136,11 +149,11 @@ export default function OverviewTab({ symbol }) {
             <span style={{ fontSize: 12, fontWeight: 600, color: '#4B5563', letterSpacing: '0.05em' }}>DANGER SCORE</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginBottom: 4 }}>
-            <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 28, fontWeight: 700, color: '#111827' }}>85<span style={{ fontSize: 16, color: '#6B7280' }}>/100</span></span>
-            <span style={{ fontSize: 12, fontWeight: 600, color: '#EF4444' }}>▲ +12 today</span>
+            <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 28, fontWeight: 700, color: '#111827' }}>{data.dangerScore}<span style={{ fontSize: 16, color: '#6B7280' }}>/100</span></span>
+            <span style={{ fontSize: 12, fontWeight: 600, color: getColor(data.dangerScore) }}>{data.activeCount || 0}/5 layers</span>
           </div>
-          <div style={{ fontSize: 12, fontWeight: 700, color: '#DC2626', background: '#FEE2E2', display: 'inline-block', padding: '2px 8px', borderRadius: 4 }}>
-            CRITICAL EXIT
+          <div style={{ fontSize: 12, fontWeight: 700, color: getColor(data.dangerScore), background: data.dangerScore > 60 ? '#FEE2E2' : '#DCFCE7', display: 'inline-block', padding: '2px 8px', borderRadius: 4 }}>
+            {data.signal}
           </div>
         </div>
 
@@ -151,11 +164,11 @@ export default function OverviewTab({ symbol }) {
             <span style={{ fontSize: 12, fontWeight: 600, color: '#4B5563', letterSpacing: '0.05em' }}>OPTIONS ANOMALY</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginBottom: 4 }}>
-            <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 28, fontWeight: 700, color: '#111827' }}>PCR 1.8x</span>
-            <span style={{ fontSize: 12, fontWeight: 600, color: '#F59E0B' }}>+40% vs 30d</span>
+            <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 28, fontWeight: 700, color: '#111827' }}>PCR {pcr.toFixed(2)}x</span>
+            <span style={{ fontSize: 12, fontWeight: 600, color: pcrDev > 20 ? '#F59E0B' : '#10B981' }}>{pcrDev > 0 ? '+' : ''}{pcrDev.toFixed(0)}% vs avg</span>
           </div>
-          <div style={{ fontSize: 12, fontWeight: 700, color: '#D97706', background: '#FEF3C7', display: 'inline-block', padding: '2px 8px', borderRadius: 4 }}>
-            ELEVATED
+          <div style={{ fontSize: 12, fontWeight: 700, color: getColor(ls.options_anomaly || 0), background: '#FEF3C7', display: 'inline-block', padding: '2px 8px', borderRadius: 4 }}>
+            {getStatus(ls.options_anomaly || 0)}
           </div>
         </div>
 
@@ -166,10 +179,10 @@ export default function OverviewTab({ symbol }) {
             <span style={{ fontSize: 12, fontWeight: 600, color: '#4B5563', letterSpacing: '0.05em' }}>MACRO PRESSURE</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginBottom: 4 }}>
-            <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 28, fontWeight: 700, color: '#111827' }}>HIGH</span>
+            <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 28, fontWeight: 700, color: '#111827' }}>{macroSignal}</span>
           </div>
           <div style={{ fontSize: 12, color: '#6B7280', marginTop: 4 }}>
-            Contributing: FII net + VIX level
+            VIX: {data.macro?.factors?.vix || '—'} | FII: ₹{((data.macro?.factors?.fii_net || 0) / 100).toFixed(0)} Cr
           </div>
         </div>
 
@@ -180,13 +193,13 @@ export default function OverviewTab({ symbol }) {
             <span style={{ fontSize: 12, fontWeight: 600, color: '#4B5563', letterSpacing: '0.05em' }}>LEGAL STATUS</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginBottom: 4 }}>
-            <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 28, fontWeight: 700, color: '#111827' }}>ALERT</span>
+            <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 28, fontWeight: 700, color: '#111827' }}>{legalStatus}</span>
           </div>
-          <div style={{ fontSize: 12, color: '#DC2626', fontWeight: 600, marginTop: 4 }}>
-            New filing detected
+          <div style={{ fontSize: 12, color: legalCount > 0 ? '#DC2626' : '#10B981', fontWeight: 600, marginTop: 4 }}>
+            {legalCount > 0 ? `${legalCount} recent filing(s)` : 'No recent filings'}
           </div>
           <div style={{ fontSize: 10, color: '#9CA3AF', marginTop: 4 }}>
-            Last checked: 5min ago
+            Pledge: {pledgePct}%
           </div>
         </div>
 
@@ -202,15 +215,15 @@ export default function OverviewTab({ symbol }) {
           </div>
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             {[
-              { label: 'Sector', value: 'Infrastructure / Energy' },
-              { label: 'Market Cap', value: '₹3,50,000 Cr (Large Cap)' },
-              { label: 'Promoter Holding', value: '65.4%' },
-              { label: 'Promoter Pledge', value: '45.0%', badge: true },
-              { label: 'FII Holding', value: '18.5%' },
-              { label: 'DII Holding', value: '5.2%' },
-              { label: 'Listed Since', value: '1994' },
               { label: 'NSE Symbol', value: symbol },
-              { label: 'Adani Group', value: 'Yes' },
+              { label: 'Spot Price', value: spotPrice > 0 ? `₹${spotPrice.toLocaleString()}` : '—' },
+              { label: 'Promoter Pledge', value: `${pledgePct}%`, badge: pledgePct > 20 },
+              { label: 'Smart Money Score', value: `${ls.smart_money || 0}/100` },
+              { label: 'FII Net Flow', value: `₹${((data.macro?.factors?.fii_net || 0) / 100).toFixed(0)} Cr` },
+              { label: 'Sentiment Signal', value: data.sentiment?.signal || 'STABLE' },
+              { label: 'Options PCR', value: pcr > 0 ? `${pcr.toFixed(2)}x` : '—' },
+              { label: 'Active Layers', value: `${data.activeCount || 0} of 5` },
+              { label: 'Danger Signal', value: data.signal },
             ].map((row, i) => (
               <div key={i} style={{ 
                 display: 'flex', justifyContent: 'space-between', padding: '12px 20px', 
