@@ -8,19 +8,25 @@ import Dashboard from './components/Dashboard';
 
 const TICKER_SYMBOLS = [
   'ADANIENT', 'ADANIPORTS', 'ADANIGREEN', 'ADANIPOWER', 'ATGL', 
-  'AWL', 'ADANIENSOL', 'ACC', 'AMBUJACEM', 'NDTV', 
-  'RELIANCE', 'SBIN', 'NIFTY'
+  'ADANIWILM', 'ADANIENSOL', 'ACC', 'AMBUJACEM', 'NDTV', 
+  'RELIANCE', 'SBIN'
 ];
 
-// Mock data generator for ticker
-const generateMockTickerData = () => {
-  return TICKER_SYMBOLS.map(symbol => {
-    const isUp = Math.random() > 0.5;
-    const change = (Math.random() * 50).toFixed(2);
-    const pct = (Math.random() * 3).toFixed(2);
-    const price = (Math.random() * 3000 + 100).toFixed(2);
-    return { symbol, price, change, pct, isUp };
-  });
+const fetchTickerData = async () => {
+  try {
+    const resp = await fetch('/warning/api/danger-score/batch');
+    if (!resp.ok) throw new Error('API error');
+    const d = await resp.json();
+    return (d.stocks || []).map(s => ({
+      symbol: s.symbol,
+      price: s.danger_score || 0,
+      change: '0', pct: '0', isUp: true,
+      dangerScore: s.danger_score || 0,
+      signal: s.final_signal || 'CLEAR',
+    }));
+  } catch (e) {
+    return TICKER_SYMBOLS.map(symbol => ({ symbol, price: 0, change: '0', pct: '0', isUp: true, dangerScore: 0, signal: 'CLEAR' }));
+  }
 };
 
 const TABS = ['Overview', 'Signals', 'Analysis', 'Legal', 'News'];
@@ -50,46 +56,46 @@ export default function App() {
   const [stockDetails, setStockDetails] = useState(null);
 
   useEffect(() => {
-    // Initial mock data
-    setTickerData(generateMockTickerData());
-    
-    // Refresh ticker every minute
-    const id = setInterval(() => {
-      setTickerData(generateMockTickerData());
-    }, 60000);
+    fetchTickerData().then(setTickerData);
+    const id = setInterval(() => fetchTickerData().then(setTickerData), 300000);
     return () => clearInterval(id);
   }, []);
 
-  // Fetch or set mock details when stock changes
+  // Fetch real details when stock changes
   useEffect(() => {
-    if (!selectedStock) {
-      setStockDetails(null);
-    } else {
-      setStockDetails({
-        name: selectedStock === 'NIFTY' ? 'Nifty 50 Index' : selectedStock === 'RELIANCE' ? 'Reliance Industries Ltd' : selectedStock + ' Ltd',
-        symbol: selectedStock,
-        price: '3,145.20',
-      change: '45.80',
-      pct: '1.45',
-      isUp: true,
-      layers: {
-        OPTIONS: 'critical',
-        MACRO: 'watch',
-        LEGAL: 'active',
-        SMART: 'clear',
-        SENTIMENT: 'critical'
-      },
-      info: {
-        prevClose: '3,099.40',
-        dayRange: '3,100.00 - 3,160.00',
-        yearRange: '2,100.00 - 3,500.00',
-        marketCap: '3.50L',
-        promoterPledge: 45, // amber
-        fiiHolding: '18.5',
-        fiiDelta: -1.2
-      }
-    });
-    }
+    if (!selectedStock) { setStockDetails(null); return; }
+    const load = async () => {
+      try {
+        const [dangerResp, smartResp] = await Promise.all([
+          fetch(`/warning/api/danger-score/${selectedStock}`),
+          fetch(`/warning/api/smart-money/${selectedStock}`),
+        ]);
+        const danger = dangerResp.ok ? await dangerResp.json() : {};
+        const smart = smartResp.ok ? await smartResp.json() : {};
+        const getS = (v) => v > 75 ? 'critical' : v > 50 ? 'active' : v > 25 ? 'watch' : 'clear';
+        const layers = danger.layers || {};
+        setStockDetails({
+          name: selectedStock + ' Ltd', symbol: selectedStock,
+          price: '—', change: '—', pct: '—', isUp: true,
+          layers: {
+            OPTIONS: getS(layers.options_anomaly || 0),
+            MACRO: getS(layers.macro_pressure || 0),
+            LEGAL: getS(layers.legal_risk || 0),
+            SMART: getS(layers.smart_money || 0),
+            SENTIMENT: getS(layers.sentiment_velocity || 0),
+          },
+          info: {
+            prevClose: '—', dayRange: '—', yearRange: '—',
+            marketCap: '—',
+            promoterPledge: smart.pledge_pct || 0,
+            fiiHolding: '—', fiiDelta: 0,
+            dangerScore: danger.danger_score || 0,
+            signal: danger.final_signal || 'CLEAR',
+          }
+        });
+      } catch (e) { console.warn('Stock detail fetch error:', e); }
+    };
+    load();
   }, [selectedStock]);
 
   const getPledgeColor = (val) => val > 60 ? '#EF4444' : val > 40 ? '#F59E0B' : '#10B981';

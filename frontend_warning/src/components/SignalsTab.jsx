@@ -4,39 +4,33 @@ import {
   ComposedChart, Line, AreaChart, Area, PieChart, Pie
 } from 'recharts';
 
-// ────── MOCK DATA GENERATION ──────
-const generateMockData = () => {
-  const pcrHistory = [];
-  const oiHistory = [];
-  
-  let pcr = 0.8;
-  let putOi = 1000000;
-  let callOi = 1200000;
-
-  let date = new Date();
-  date.setDate(date.getDate() - 14);
-
-  for (let i = 0; i < 14; i++) {
-    const isAnomaly = i >= 11; // Last 3 days spike
-    
-    pcr = isAnomaly ? pcr + 0.4 : pcr + (Math.random() * 0.2 - 0.1);
-    putOi = isAnomaly ? putOi + 500000 : putOi + (Math.random() * 200000 - 100000);
-    callOi = callOi + (Math.random() * 150000 - 75000);
-    
-    const dStr = new Date(date).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' });
-    
-    pcrHistory.push({ date: dStr, pcr: pcr });
-    oiHistory.push({ 
-      date: dStr, 
-      putOi: Math.floor(putOi), 
-      callOi: Math.floor(callOi),
-      delta: i > 0 ? Math.floor(putOi - oiHistory[i-1].putOi) : 0
-    });
-    
-    date.setDate(date.getDate() + 1);
+// ────── FETCH REAL DATA ──────
+const fetchSignalsData = async (symbol) => {
+  const result = { pcrHistory: [], oiHistory: [], pcr: 0, ivPercentile: 0, dangerScore: 0 };
+  try {
+    const [optsResp, dangerResp] = await Promise.all([
+      fetch(`/warning/api/options/${symbol}`),
+      fetch(`/warning/api/danger-score/${symbol}`),
+    ]);
+    if (optsResp.ok) {
+      const opts = await optsResp.json();
+      const chain = opts.chain || {};
+      const anomaly = opts.anomaly || {};
+      result.pcr = chain.pcr || anomaly.pcr || 0;
+      result.ivPercentile = chain.avg_iv || 50;
+      // Build single-point history from available data
+      const now = new Date().toLocaleDateString('en-IN', { month: 'short', day: 'numeric' });
+      result.pcrHistory = [{ date: now, pcr: result.pcr }];
+      result.oiHistory = [{ date: now, putOi: chain.total_put_oi || 0, callOi: chain.total_call_oi || 0, delta: 0 }];
+    }
+    if (dangerResp.ok) {
+      const danger = await dangerResp.json();
+      result.dangerScore = danger.danger_score || 0;
+    }
+  } catch (e) {
+    console.warn('SignalsTab fetch error:', e);
   }
-
-  return { pcrHistory, oiHistory };
+  return result;
 };
 
 // ────── CUSTOM GAUGE COMPONENT ──────
@@ -137,18 +131,18 @@ export default function SignalsTab({ symbol }) {
   const [data, setData] = useState(null);
 
   useEffect(() => {
-    setData(generateMockData());
+    fetchSignalsData(symbol).then(setData);
   }, [symbol]);
 
-  if (!data) return null;
+  if (!data) return <div style={{ padding: 40, textAlign: 'center', color: '#6B7280' }}>Loading signals...</div>;
 
-  const currentPcr = data.pcrHistory[data.pcrHistory.length - 1].pcr;
-  const currentIv = 82; // Mock IV
-  const currentDanger = 85; // Mock Danger
+  const currentPcr = data.pcr;
+  const currentIv = data.ivPercentile;
+  const currentDanger = data.dangerScore;
   
-  const putOiAvg = data.oiHistory.reduce((acc, curr) => acc + curr.putOi, 0) / data.oiHistory.length;
-  const lastPutOi = data.oiHistory[data.oiHistory.length - 1].putOi;
-  const isAnomaly = lastPutOi > putOiAvg * 1.4;
+  const putOiAvg = data.oiHistory.length > 0 ? data.oiHistory.reduce((acc, curr) => acc + curr.putOi, 0) / data.oiHistory.length : 0;
+  const lastPutOi = data.oiHistory.length > 0 ? data.oiHistory[data.oiHistory.length - 1].putOi : 0;
+  const isAnomaly = putOiAvg > 0 && lastPutOi > putOiAvg * 1.4;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24, animation: 'fadeIn 0.3s ease' }}>
