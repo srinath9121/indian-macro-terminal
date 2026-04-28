@@ -1327,7 +1327,6 @@ async def api_warning_danger_score(request: Request, symbol: str):
         'timestamp': datetime.now(IST).isoformat(),
         'disclaimer': 'Detection system only. Not financial advice. Always use stop losses.'
     }
-    }
 
 # ── ALERTS HISTORY (Section 6) ──
 @app.get("/warning/api/alerts/history")
