@@ -4,6 +4,7 @@ import { safeFetch } from '../utils/api';
 
 export default function Backtest() {
   const [data, setData] = useState(null);
+  const [events, setEvents] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -12,6 +13,7 @@ export default function Backtest() {
         const resp = await safeFetch('/warning/api/backtest/hindenburg');
         if (resp && resp.data) {
           setData(resp.data);
+          setEvents(resp.events || []);
         }
       } catch (e) {
         console.error('Backtest fetch failed:', e);
@@ -103,12 +105,63 @@ export default function Backtest() {
             <Tooltip content={<CustomTooltip />} />
             
             <ReferenceLine yAxisId="left" x="24 Jan 2023" stroke="#EF4444" strokeDasharray="3 3" label={{ position: 'top', value: 'Hindenburg Report', fill: '#EF4444', fontSize: 12 }} />
+            <ReferenceLine yAxisId="left" x="20 Nov 2024" stroke="#EF4444" strokeDasharray="3 3" label={{ position: 'top', value: 'DoJ Indictment', fill: '#EF4444', fontSize: 12 }} />
             
             <Area yAxisId="right" type="monotone" dataKey="danger_score" stroke="#EF4444" fillOpacity={1} fill="url(#colorScore)" />
             <Line yAxisId="left" type="monotone" dataKey="price" stroke="#00D4FF" dot={false} strokeWidth={2} />
           </ComposedChart>
         </ResponsiveContainer>
       </div>
+
+      {/* Forensic Validation Section (Block D) */}
+      {events && events.length > 0 && (
+        <div style={{ marginTop: 32 }}>
+          <h3 style={{ color: '#9CA3AF', fontSize: 14, fontFamily: "'Space Mono', monospace", marginBottom: 16, letterSpacing: '0.1em' }}>
+            FORENSIC VALIDATION (MODEL BLOCK D)
+          </h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+            {events.map((ev, i) => (
+              <div key={i} style={{ background: '#0D0D1A', border: '1px solid #1F2937', borderRadius: 8, padding: 20 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: '#F9FAFB' }}>{ev.event}</div>
+                  <div style={{ fontSize: 12, color: '#6B7280', fontFamily: "'Space Mono', monospace" }}>{ev.event_date}</div>
+                </div>
+                
+                {ev.error ? (
+                  <div style={{ color: '#EF4444', fontSize: 14 }}>Error: {ev.error}</div>
+                ) : (
+                  <>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 20 }}>
+                      <div style={{ background: 'rgba(245, 158, 11, 0.1)', borderLeft: '3px solid #F59E0B', padding: '10px 12px', fontSize: 13, color: '#D1D5DB' }}>
+                        {ev.reduce_signal}
+                      </div>
+                      <div style={{ background: 'rgba(239, 68, 68, 0.1)', borderLeft: '3px solid #EF4444', padding: '10px 12px', fontSize: 13, color: '#D1D5DB' }}>
+                        {ev.exit_signal}
+                      </div>
+                    </div>
+
+                    <div style={{ fontSize: 10, color: '#9CA3AF', marginBottom: 8, fontFamily: "'Space Mono', monospace" }}>POST-EVENT DRAWDOWNS</div>
+                    <div style={{ display: 'flex', gap: 16 }}>
+                      <div style={{ background: '#111827', padding: '8px 12px', borderRadius: 6, flex: 1, textAlign: 'center' }}>
+                        <div style={{ fontSize: 10, color: '#6B7280', marginBottom: 4 }}>1 DAY</div>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: ev.drawdown_1d.includes('+') ? '#10B981' : '#EF4444' }}>{ev.drawdown_1d}</div>
+                      </div>
+                      <div style={{ background: '#111827', padding: '8px 12px', borderRadius: 6, flex: 1, textAlign: 'center' }}>
+                        <div style={{ fontSize: 10, color: '#6B7280', marginBottom: 4 }}>5 DAYS</div>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: ev.drawdown_5d.includes('+') ? '#10B981' : '#EF4444' }}>{ev.drawdown_5d}</div>
+                      </div>
+                      <div style={{ background: '#111827', padding: '8px 12px', borderRadius: 6, flex: 1, textAlign: 'center' }}>
+                        <div style={{ fontSize: 10, color: '#6B7280', marginBottom: 4 }}>10 DAYS</div>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: ev.drawdown_10d.includes('+') ? '#10B981' : '#EF4444' }}>{ev.drawdown_10d}</div>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       
     </div>
   );
