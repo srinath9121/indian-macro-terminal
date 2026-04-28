@@ -10,48 +10,71 @@ const getStatus = (s) => s > 80 ? 'critical' : s > 60 ? 'active' : s > 35 ? 'wat
 
 const fetchDashboardData = async () => {
   try {
-    const resp = await fetch('/warning/api/danger-score/batch');
+    // 1. Fetch live prices from the WebSocket state (market endpoint)
+    const mktResp = await fetch('/api/live');
+    const mktData = await mktResp.json();
+    const prices = mktData.MARKET || {};
+
+    // 2. Fetch the new Model Engine output (Blocks A-G)
+    const resp = await fetch('/warning/api/model-output');
     if (!resp.ok) throw new Error('API error');
     const batchData = await resp.json();
-    const stocks = (batchData.stocks || [])
-      .filter(s => ADANI_STOCKS.includes(s.symbol))
-      .map(s => {
+    
+    // Also fetch data quality
+    const dqResp = await fetch('/api/data-quality');
+    const dqData = dqResp.ok ? await dqResp.json() : {};
+
+    const stocks = (Object.entries(batchData.stocks || {}))
+      .filter(([sym]) => ADANI_STOCKS.includes(sym))
+      .map(([sym, s]) => {
         const layers = s.layers || {};
-        const layerEntries = [
-          { name: 'OPTIONS', score: layers.options_anomaly || 0 },
-          { name: 'MACRO', score: layers.macro_pressure || 0 },
-          { name: 'LEGAL', score: layers.legal_risk || 0 },
-          { name: 'SMART', score: layers.smart_money || 0 },
-          { name: 'SENTIMENT', score: layers.sentiment_velocity || 0 },
-        ];
-        layerEntries.sort((a, b) => b.score - a.score);
+        const p = prices[sym + '.NS'] || {};
+        
+        // Find top anomaly layer
+        let topLayer = 'NONE';
+        let maxS = -1;
+        Object.entries(layers).forEach(([k, v]) => {
+            if(v.score > maxS) { maxS = v.score; topLayer = k.toUpperCase().replace('_', ' '); }
+        });
+
         return {
-          symbol: s.symbol, name: s.symbol + ' Ltd', 
-          price: s.price > 0 ? s.price : '—', 
-          pct: s.pct !== 0 ? s.pct : '—', 
-          isUp: s.isUp !== undefined ? s.isUp : true,
-          dangerScore: s.danger_score || 0, activeLayerName: layerEntries[0].name,
+          symbol: sym, 
+          name: sym + ' Ltd', 
+          price: p.price > 0 ? p.price : '—', 
+          pct: p.pct !== undefined ? p.pct : '—', 
+          isUp: p.is_up !== undefined ? p.is_up : true,
+          dangerScore: s.score || 0, 
+          decision: s.decision || 'HOLD',
+          causalChain: s.causal_chain || '',
+          activeLayerName: topLayer,
           layersStatus: {
-            OPTIONS: getStatus(layers.options_anomaly || 0),
-            MACRO: getStatus(layers.macro_pressure || 0),
-            LEGAL: getStatus(layers.legal_risk || 0),
-            SMART: getStatus(layers.smart_money || 0),
-            SENTIMENT: getStatus(layers.sentiment_velocity || 0),
+            OPTIONS: getStatus(layers.options_proxy?.score || 0),
+            MACRO: getStatus(layers.macro_pressure?.score || 0),
+            LEGAL: getStatus(layers.legal_risk?.score || 0),
+            SMART: getStatus(layers.smart_money?.score || 0),
+            SENTIMENT: getStatus(layers.sentiment_velocity?.score || 0),
           }
         };
       });
+      
     stocks.sort((a, b) => b.dangerScore - a.dangerScore);
-    const alerts = stocks.filter(s => s.dangerScore > 35).map(s => ({
-      time: 'Now', stock: s.symbol, layer: s.activeLayerName + ' ANOMALY',
-      score: s.dangerScore, action: `Danger score at ${s.dangerScore}/100`
-    })).slice(0, 3);
-    return { stocks, alerts, divergences: [] };
+    
+    // Map minute alerts
+    const alertResp = await fetch('/warning/api/alerts/live');
+    const alertData = alertResp.ok ? await alertResp.json() : { alerts: [] };
+    const alerts = alertData.alerts.slice(0, 3);
+    
+    return { stocks, alerts, dataQuality: dqData.data_quality || 'UNKNOWN', macroRegime: dqData.macro_regime || 'TRANSITION' };
   } catch (e) {
-    return { stocks: ADANI_STOCKS.map(symbol => ({
-      symbol, name: symbol + ' Ltd', price: '—', pct: '—', isUp: true,
-      dangerScore: 0, activeLayerName: 'NONE',
-      layersStatus: { OPTIONS: 'loading', MACRO: 'loading', LEGAL: 'loading', SMART: 'loading', SENTIMENT: 'loading' }
-    })), alerts: [{ time: 'Now', stock: 'SYSTEM', layer: 'DATA', score: 0, action: 'Waiting for market data...' }], divergences: [] };
+    return { 
+      stocks: ADANI_STOCKS.map(symbol => ({
+        symbol, name: symbol + ' Ltd', price: '—', pct: '—', isUp: true,
+        dangerScore: 0, decision: 'HOLD', causalChain: 'Waiting for model...',
+        activeLayerName: 'NONE',
+        layersStatus: { OPTIONS: 'loading', MACRO: 'loading', LEGAL: 'loading', SMART: 'loading', SENTIMENT: 'loading' }
+      })), 
+      alerts: [], dataQuality: 'BLOCKED', macroRegime: 'UNKNOWN' 
+    };
   }
 };
 
@@ -144,6 +167,15 @@ export default function Dashboard({ onSelectStock }) {
                 { min: 80, max: 100, color: '#EF4444', label: 'CRITICAL' }
               ]}
             />
+            {/* Block G + Block C Indicators */}
+            <div style={{ display: 'flex', justifyContent: 'center', gap: 12, marginTop: 16 }}>
+              <div style={{ background: '#1F2937', color: data.dataQuality === 'BLOCKED' ? '#EF4444' : '#10B981', fontSize: 10, padding: '4px 8px', borderRadius: 4, fontFamily: "'Space Mono', monospace" }}>
+                DATA: {data.dataQuality}
+              </div>
+              <div style={{ background: '#1F2937', color: data.macroRegime === 'CRISIS' ? '#EF4444' : '#F59E0B', fontSize: 10, padding: '4px 8px', borderRadius: 4, fontFamily: "'Space Mono', monospace" }}>
+                REGIME: {data.macroRegime}
+              </div>
+            </div>
           </div>
 
           {/* Correlation */}
@@ -152,7 +184,7 @@ export default function Dashboard({ onSelectStock }) {
             <div style={{ fontSize: 11, color: '#6B7280', fontStyle: 'italic', marginBottom: 16, lineHeight: 1.4 }}>
               All 10 Adani stocks correlate. One drop cascades.
             </div>
-            {data.divergences.length === 0 ? (
+            {data.stocks.length > 0 ? (
               <div style={{ fontSize: 12, color: '#10B981', fontWeight: 600, background: '#064e3b', padding: '8px 12px', borderRadius: 4, border: '1px solid #065f46' }}>
                 ✓ High correlation. No divergences.
               </div>
@@ -170,10 +202,9 @@ export default function Dashboard({ onSelectStock }) {
                 <div key={i} style={{ paddingBottom: 12, borderBottom: i === data.alerts.length - 1 ? 'none' : '1px solid #1F2937' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
                     <span style={{ fontSize: 10, color: '#6B7280' }}>{alert.time}</span>
-                    <span style={{ fontSize: 10, fontWeight: 700, color: '#EF4444', fontFamily: "'Space Mono', monospace" }}>SCORE {alert.score}</span>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: alert.severity === 'HIGH' ? '#EF4444' : '#F59E0B', fontFamily: "'Space Mono', monospace" }}>{alert.stock}</span>
                   </div>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: '#F9FAFB', marginBottom: 2 }}>{alert.stock}</div>
-                  <div style={{ fontSize: 11, color: '#9CA3AF' }}><span style={{ fontWeight: 600, color: '#D1D5DB' }}>{alert.layer}:</span> {alert.action}</div>
+                  <div style={{ fontSize: 11, color: '#D1D5DB' }}>{alert.event}</div>
                 </div>
               ))}
             </div>
@@ -217,9 +248,14 @@ export default function Dashboard({ onSelectStock }) {
                     <StatusDot status={stock.layersStatus.SMART} />
                     <StatusDot status={stock.layersStatus.SENTIMENT} />
                   </div>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: '#9CA3AF', fontFamily: "'Space Mono', monospace" }}>
-                    ACTIVE: <span style={{ color: borderColor }}>{stock.activeLayerName}</span>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: borderColor, fontFamily: "'Space Mono', monospace" }}>
+                    [{stock.decision}]
                   </div>
+                </div>
+
+                {/* Block B: Causal Chain Explanation */}
+                <div style={{ fontSize: 10, color: '#9CA3AF', fontStyle: 'italic', height: 28, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                  {stock.causalChain}
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -235,6 +271,7 @@ export default function Dashboard({ onSelectStock }) {
             );
           })}
         </div>
+
       </div>
     </div>
   );

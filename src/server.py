@@ -33,6 +33,11 @@ from contextlib import asynccontextmanager
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
+from src.model_engine import (
+    validate_inputs, classify_macro_regime, compute_layer_scores,
+    compute_final_score, generate_decision, build_trace,
+    run_model_pipeline, causal_chain_explain
+)
 
 # ─────────────────────────────────────────────────────
 # PATH & LOGGING
@@ -170,40 +175,9 @@ def _rsi_label(rsi):
     return "NEUTRAL"
 
 # ─────────────────────────────────────────────────────
-# RULE-BASED DANGER SCORE (PATCH 3)
+# MODEL ENGINE INTEGRATION (Block A)
 # ─────────────────────────────────────────────────────
-def compute_rule_based_danger(symbol: str, df_stock) -> dict:
-    try:
-        closes = df_stock["Close"].dropna()
-        volumes = df_stock["Volume"].dropna()
-        if len(closes) < 5:
-            return {"danger_score": 0, "flags": []}
-        price_drop = (closes.iloc[-1] - closes.iloc[-5]) / closes.iloc[-5] * 100
-        vol_ratio = volumes.iloc[-1] / max(volumes.iloc[-5:].mean(), 1)
-        score, flags = 0, []
-        if price_drop < -10:
-            score += 40
-            flags.append(f"Drop {price_drop:.1f}% in 5d")
-        elif price_drop < -5:
-            score += 20
-            flags.append(f"Drop {price_drop:.1f}% in 5d")
-            
-        if vol_ratio > 3:
-            score += 30
-            flags.append(f"Volume {vol_ratio:.1f}× avg")
-        elif vol_ratio > 2:
-            score += 15
-            flags.append(f"Volume {vol_ratio:.1f}× avg")
-            
-        pct_from_high = (closes.iloc[-1] - closes.max()) / closes.max() * 100
-        if pct_from_high < -40:
-            score += 20
-            flags.append(f"{pct_from_high:.1f}% from 52W high")
-            
-        return {"danger_score": min(score, 100), "flags": flags}
-    except Exception as e:
-        logger.warning(f"Rule danger failed for {symbol}: {e}")
-        return {"danger_score": 0, "flags": []}
+# Note: Logic moved to src/model_engine.py for multi-layer depth.
 
 # ─────────────────────────────────────────────────────
 # SINGLETON SYNC — one yfinance batch every 10 minutes
@@ -220,20 +194,14 @@ async def unified_sync_service():
                 lambda: yf.download(all_syms, period="5d", group_by="ticker", progress=False)
             )
 
-            # ── FX (with sanity guard — Bug #1 fix) ──
-            fx = 83.5
+            # ── FX & Data Validation (Block C) ──
+            fx_raw = 83.5
             if "USDINR=X" in df.columns.levels[0]:
                 s = df["USDINR=X"]["Close"].dropna()
                 if not s.empty:
                     fx_raw = float(s.iloc[-1])
-                    if 79 <= fx_raw <= 92:
-                        fx = fx_raw
-                        set_cached("usd_inr_last_good", fx, ttl=86400)  # cache for 24h
-                        logger.info(f"USD/INR accepted: {fx}")
-                    else:
-                        cached_fx = get_cached("usd_inr_last_good")
-                        fx = cached_fx if cached_fx else 84.0
-                        logger.warning(f"USD/INR sanity fail: {fx_raw}. Using fallback: {fx}")
+            
+            # We defer calling validate_inputs until m_res is fully populated below
 
             # ── Market indices ──
             m_res = {}
@@ -272,6 +240,15 @@ async def unified_sync_service():
                 except Exception as e:
                     logger.warning(f"NSE fallback failed: {e}")
 
+            # ── Run Data Validation (Block C) ──
+            validation = validate_inputs(m_res, fx_raw)
+            if validation['data_quality'] == 'BLOCKED':
+                logger.warning(f"Validation blocked data: {validation['validation_flags']}")
+            
+            # Extract the validated FX rate to use for commodities
+            fx = validation['fx_rate']
+            # We can store the data quality flag in the global state so the UI knows if data is STALE/LIVE
+            pulse_extra = {'data_quality': validation['data_quality']}
             # ── Commodities ──
             c_res = []
             pulse_extra = {}
@@ -328,12 +305,44 @@ async def unified_sync_service():
                         "is_up":   item["inr_change"] >= 0,
                     }
 
-            # ── Adani Prices ──
+            # ── GEOPOLITICAL & MACRO CONTEXT (Pre-fetch for Model Engine) ──
+            from src.gdelt_fetcher import GDELTFetcher
+            fetcher = GDELTFetcher()
+            events = await fetcher.fetch_events_with_fallback()
+            headlines = [e.get('title', '') for e in events]
+            gdelt_tone = sum(e.get('goldstein', 0) for e in events) / max(len(events), 1)
+            
+            vix_val = 15.0
+            if "INDIAVIX" in m_res: vix_val = m_res["INDIAVIX"]["price"]
+            
+            nifty_5d = 0
+            if "NIFTY" in m_res: nifty_5d = m_res["NIFTY"]["pChange"]
+            
+            # Prepare macro context for the model
+            macro_ctx = {
+                'vix': vix_val,
+                'nifty_5d_pct': nifty_5d,
+                'usd_inr_5d_pct': 0, # Placeholder for now
+                'brent_pct': 0,      # Placeholder for now
+                'fii_net_cr': 0,     # Placeholder for now
+                'headlines': headlines,
+                'gdelt_tone_avg': gdelt_tone,
+                'negative_ratio': 0.3, # Estimate
+                'keyword_density': min(100, len([h for h in headlines if 'Adani' in h]) * 10),
+                'data_quality': validation['data_quality']
+            }
+
+            # ── Adani Prices & Model Engine (Block A) ──
             adani_prices = {}
             for sym in ADANI_STOCKS:
                 yf_sym = sym + ".NS"
                 try:
                     if yf_sym not in df.columns.levels[0]: continue
+                    
+                    # Run the full Model Pipeline (Blocks A, B, G)
+                    model_output = run_model_pipeline(sym, df[yf_sym], macro_ctx)
+                    set_cached(f'model_output_{sym}', model_output, ttl=3600)
+                    
                     close = df[yf_sym]["Close"].dropna()
                     if len(close) < 2: continue
                     curr, prev = float(close.iloc[-1]), float(close.iloc[-2])
@@ -342,12 +351,13 @@ async def unified_sync_service():
                         "change": round(curr - prev, 2),
                         "pct": round((curr - prev) / prev * 100, 2),
                         "is_up": (curr - prev) >= 0,
+                        "danger_score": model_output['score'],
+                        "decision": model_output['decision'],
+                        "causal_chain": model_output['causal_chain']
                     }
-                    
-                    # Rule-based danger score caching
-                    danger_info = compute_rule_based_danger(sym, df[yf_sym])
-                    set_cached(f'danger_rule_{sym}', danger_info, ttl=3600)
-                except: continue
+                except Exception as e: 
+                    logger.warning(f"Model failed for {sym}: {e}")
+                    continue
 
             # ── Write preliminary state before slow GDELT ──
             GLOBAL_STATE["market"]     = {**m_res, **pulse_extra}
@@ -355,10 +365,10 @@ async def unified_sync_service():
             GLOBAL_STATE["adani_prices"] = adani_prices
             GLOBAL_STATE["last_sync"] = datetime.now(IST).isoformat()
             
-            # ── GENERATE MINUTE ALERTS (Live Activity Log) ──
+            # ── GENERATE MINUTE ALERTS (Live Activity Log — Block B) ──
             new_alerts = []
             for sym, data in adani_prices.items():
-                # Randomly simulate minor alerts or use real volatility
+                # Price volatility alert
                 if abs(data['pct']) > 0.3:
                     new_alerts.append({
                         "time": datetime.now(IST).strftime("%H:%M"),
@@ -367,13 +377,16 @@ async def unified_sync_service():
                         "severity": "LOW" if abs(data['pct']) < 1 else "MEDIUM"
                     })
                 
-                danger = get_cached(f'danger_rule_{sym}')
-                if danger and danger.get('danger_score', 0) > 40:
+                # Model decision alert (Block B causal chain)
+                model = get_cached(f'model_output_{sym}')
+                if model and model.get('score', 0) > 35:
+                    decision = model.get('decision', 'HOLD')
+                    severity = "HIGH" if decision == "EXIT" else "MEDIUM"
                     new_alerts.append({
                         "time": datetime.now(IST).strftime("%H:%M"),
                         "stock": sym + ".NS",
-                        "event": f"Elevated Risk: Score {danger['danger_score']}",
-                        "severity": "HIGH" if danger['danger_score'] > 70 else "MEDIUM"
+                        "event": f"[{decision}] {model.get('causal_chain', 'Score elevated')}",
+                        "severity": severity
                     })
 
             # Prepend and cap at 50
@@ -439,8 +452,14 @@ async def unified_sync_service():
             }
 
             # ── Write final state ──
-            GLOBAL_STATE["market"]     = {**m_res, **pulse_extra} # update in case anything changed
+            # Compute group-level regime from macro_ctx for broadcast
+            group_regime = classify_macro_regime(
+                vix=macro_ctx.get('vix', 14),
+                nifty_5d_pct=macro_ctx.get('nifty_5d_pct', 0),
+            )
+            GLOBAL_STATE["market"]     = {**m_res, **pulse_extra}
             GLOBAL_STATE["commodities"] = c_res
+            GLOBAL_STATE["macro_regime"] = group_regime
             GLOBAL_STATE["signals"]    = {
                 "timestamp": datetime.now(IST).isoformat(),
                 "MARKET":    GLOBAL_STATE["market"],
@@ -450,6 +469,9 @@ async def unified_sync_service():
                 "SIGNAL":    signal,
                 "zone":      zone,
                 "mode":      mode,
+                "data_quality": validation['data_quality'],   # Block C
+                "macro_regime": group_regime['label'],        # Block G
+                "regime_multiplier": group_regime['multiplier'],
             }
             GLOBAL_STATE["last_sync"] = datetime.now(IST).isoformat()
 
@@ -1225,49 +1247,142 @@ async def api_warning_batch(request: Request):
 
 @app.get("/warning/api/backtest/hindenburg")
 async def api_hindenburg_backtest():
-    """Full inference replay on ADANIENT.NS from 2023 to current day in 2026."""
+    """Block D: Forensic backtest on ADANIENT.NS.
+    
+    Tests the model against two known crash events:
+      1. Hindenburg Research report — Jan 24, 2023
+      2. DoJ indictment — Nov 20, 2024
+    
+    Reports signal_lead_days honestly. If system missed it, says so.
+    Also returns the full daily risk timeline for chart rendering.
+    """
     cached = get_cached("full_history_backtest")
     if cached: return cached
-    
+
     loop = asyncio.get_event_loop()
     def _fetch():
         try:
-            # Fetch from 2022 to get 52W high context for early 2023
+            # Fetch from 2022 for 52W high context
             df = yf.Ticker("ADANIENT.NS").history(start="2022-01-01")
-            if df.empty: return {"data": []}
-            
-            results = []
-            # Find start of 2023
-            start_2023_df = df[df.index >= '2023-01-01']
-            if start_2023_df.empty: return {"data": []}
-            start_idx = df.index.get_loc(start_2023_df.index[0])
-            
-            # Step size optimization: if we have > 500 days, take every 2nd day to keep UI smooth
-            # but user asked for "everyday", so we'll try to provide full daily unless it's massive.
-            step = 1
-            if len(df) - start_idx > 800: step = 2 
+            if df.empty: return {"data": [], "events": []}
 
+            # ── Known crash events to validate against ──
+            KNOWN_EVENTS = [
+                {"name": "Hindenburg Report", "date": "2023-01-24", "reduce_threshold": 35, "exit_threshold": 60},
+                {"name": "DoJ Indictment",    "date": "2024-11-20", "reduce_threshold": 35, "exit_threshold": 60},
+            ]
+
+            # ── Full daily timeline for chart ──
+            start_df = df[df.index >= '2023-01-01']
+            if start_df.empty: return {"data": [], "events": []}
+            start_idx = df.index.get_loc(start_df.index[0])
+
+            step = 1
+            if len(df) - start_idx > 800: step = 2
+
+            timeline = []
             for i in range(start_idx, len(df), step):
-                window = df.iloc[:i+1]
+                window = df.iloc[max(0, i-20):i+1]  # 20d rolling window for context
                 raw_date = df.index[i].strftime("%Y-%m-%d")
-                date_str = df.index[i].strftime("%d %b %Y")
-                
-                info = compute_rule_based_danger("ADANIENT.NS", window)
-                results.append({
+
+                # Run the 5-layer model on historical window
+                macro_ctx = {
+                    'vix': 15.0, 'nifty_5d_pct': 0,
+                    'usd_inr_5d_pct': 0, 'brent_pct': 0,
+                    'fii_net_cr': 0, 'headlines': [],
+                    'gdelt_tone_avg': 0, 'negative_ratio': 0.3,
+                    'keyword_density': 0, 'data_quality': 'LIVE'
+                }
+                from src.model_engine import run_model_pipeline
+                result = run_model_pipeline("ADANIENT", window, macro_ctx)
+
+                timeline.append({
                     "raw_date": raw_date,
-                    "date": date_str,
-                    "price": round(window.iloc[-1]["Close"], 2),
-                    "danger_score": info["danger_score"],
-                    "flags": info["flags"]
+                    "date": df.index[i].strftime("%d %b %Y"),
+                    "price": round(float(window.iloc[-1]["Close"]), 2),
+                    "danger_score": result['score'],
+                    "decision": result['decision'],
+                    "flags": [v['trigger'] for v in result['layers'].values() if v['score'] > 0]
                 })
-            return {"data": results, "title": "ADANI RISK INFERENCE (2023-2026)", "symbol": "ADANIENT.NS"}
+
+            # ── Forensic event analysis ──
+            event_results = []
+            for event in KNOWN_EVENTS:
+                event_date = event["date"]
+                try:
+                    event_dt = df.index[df.index.get_indexer([event_date], method='nearest')[0]]
+                    event_i = df.index.get_loc(event_dt)
+
+                    # Find first signal day BEFORE event
+                    reduce_signal_date = None
+                    exit_signal_date = None
+
+                    lookback_start = max(0, event_i - 90)
+                    for j in range(lookback_start, event_i):
+                        window = df.iloc[max(0, j-20):j+1]
+                        macro_ctx = {
+                            'vix': 15.0, 'nifty_5d_pct': 0,
+                            'usd_inr_5d_pct': 0, 'brent_pct': 0,
+                            'fii_net_cr': 0, 'headlines': [],
+                            'gdelt_tone_avg': 0, 'negative_ratio': 0.3,
+                            'keyword_density': 0, 'data_quality': 'LIVE'
+                        }
+                        from src.model_engine import run_model_pipeline
+                        r = run_model_pipeline("ADANIENT", window, macro_ctx)
+                        if reduce_signal_date is None and r['score'] >= event["reduce_threshold"]:
+                            reduce_signal_date = df.index[j].strftime("%Y-%m-%d")
+                        if exit_signal_date is None and r['score'] >= event["exit_threshold"]:
+                            exit_signal_date = df.index[j].strftime("%Y-%m-%d")
+
+                    # Compute max drawdown 1d, 5d, 10d after event
+                    price_at_event = float(df.iloc[event_i]["Close"]) if event_i < len(df) else 0
+                    drawdowns = {}
+                    for days, label in [(1, "1d"), (5, "5d"), (10, "10d")]:
+                        future_i = min(event_i + days, len(df) - 1)
+                        future_price = float(df.iloc[future_i]["Close"])
+                        drawdowns[label] = round((future_price - price_at_event) / price_at_event * 100, 1)
+
+                    # Signal lead days
+                    if reduce_signal_date:
+                        from datetime import date
+                        lead = (event_dt.date() - date.fromisoformat(reduce_signal_date)).days
+                        reduce_lead_msg = f"System fired REDUCE on {reduce_signal_date} — {lead} days before crash."
+                    else:
+                        reduce_lead_msg = "System did NOT fire REDUCE before this event."
+
+                    if exit_signal_date:
+                        lead_exit = (event_dt.date() - date.fromisoformat(exit_signal_date)).days
+                        exit_lead_msg = f"System fired EXIT on {exit_signal_date} — {lead_exit} days before crash."
+                    else:
+                        exit_lead_msg = "System did NOT fire EXIT before this event."
+
+                    event_results.append({
+                        "event": event["name"],
+                        "event_date": event_date,
+                        "reduce_signal": reduce_lead_msg,
+                        "exit_signal": exit_lead_msg,
+                        "drawdown_1d": f"{drawdowns.get('1d', 0):+.1f}%",
+                        "drawdown_5d": f"{drawdowns.get('5d', 0):+.1f}%",
+                        "drawdown_10d": f"{drawdowns.get('10d', 0):+.1f}%",
+                        "price_at_event": round(price_at_event, 2),
+                    })
+                except Exception as ev_err:
+                    logger.warning(f"Event backtest failed for {event['name']}: {ev_err}")
+                    event_results.append({"event": event["name"], "error": str(ev_err)})
+
+            return {
+                "data": timeline,
+                "events": event_results,
+                "title": "FORENSIC BACKTEST — ADANIENT.NS (2023-2026)",
+                "symbol": "ADANIENT.NS"
+            }
         except Exception as e:
-            logger.error(f"Full history inference failed: {e}")
-            return {"data": []}
-            
+            logger.error(f"Backtest failed: {e}")
+            return {"data": [], "events": []}
+
     res = await loop.run_in_executor(None, _fetch)
     if res and res.get("data"):
-        set_cached("full_history_backtest", res, 3600) # 1h cache for daily updates
+        set_cached("full_history_backtest", res, 3600)
     return res
 
 
@@ -1425,6 +1540,87 @@ async def api_macro_correlation():
 async def api_live_alerts():
     """Returns the minute-by-minute live activity feed for Adani stocks."""
     return {"alerts": GLOBAL_STATE["minute_alerts"]}
+
+# ── MODEL INTELLIGENCE OUTPUT (Block B — Decisions & Causal Chains) ──
+@app.get("/warning/api/model-output")
+async def api_model_output():
+    """Returns the full model intelligence output for all Adani stocks.
+    Includes: score, decision (HOLD/REDUCE/EXIT), causal chain, layer breakdown."""
+    results = {}
+    for sym in ADANI_STOCKS:
+        cached = get_cached(f'model_output_{sym}')
+        if cached:
+            results[sym] = {
+                'score': cached.get('score', 0),
+                'decision': cached.get('decision', 'HOLD'),
+                'reason': cached.get('reason', ''),
+                'causal_chain': cached.get('causal_chain', ''),
+                'regime': cached.get('regime', {}),
+                'layers': cached.get('layers', {}),
+            }
+    return {"stocks": results, "timestamp": GLOBAL_STATE.get("last_sync")}
+
+# ── BLOCK E — TRACEABILITY (Per-stock full audit trail) ──
+@app.get("/warning/api/trace/{symbol}")
+async def api_trace(symbol: str):
+    """Returns the full trace dict for a single stock.
+    
+    Per Block E rules: Every output has source + formula + timestamp.
+    UI must display: score + top 2 layers + decision + timestamp.
+    No black boxes. Ever.
+    """
+    sym = symbol.upper().replace(".NS", "")
+    cached = get_cached(f'model_output_{sym}')
+    if not cached:
+        return {"error": f"No model output cached for {sym}. Wait for next sync cycle."}
+
+    trace = cached.get('trace', {})
+    layers = cached.get('layers', {})
+
+    # Top 2 layers by score for the UI summary
+    full_layers = cached.get('trace', {}).get('layers', {})
+    sorted_layers = sorted(
+        [(k, v) for k, v in full_layers.items()],
+        key=lambda x: x[1].get('score', 0), reverse=True
+    )
+    top2 = [
+        {
+            'layer': k.upper().replace('_', ' '),
+            'score': v.get('score', 0),
+            'rule': v.get('rule_triggered', ''),
+            'source': v.get('data_source', ''),
+        }
+        for k, v in sorted_layers[:2] if v.get('score', 0) > 0
+    ]
+
+    return {
+        'symbol': sym,
+        'score': trace.get('score', cached.get('score', 0)),
+        'decision': trace.get('decision', cached.get('decision', 'HOLD')),
+        'decision_reason': trace.get('decision_reason', cached.get('reason', '')),
+        'timestamp': trace.get('timestamp', GLOBAL_STATE.get('last_sync')),
+        'data_quality': trace.get('data_quality', 'UNKNOWN'),
+        'macro_regime': trace.get('macro_regime', ''),
+        'regime_multiplier': trace.get('regime_multiplier', 1.0),
+        'causal_chain': trace.get('causal_chain', ''),
+        'top_2_layers': top2,
+        'all_layers': full_layers,
+    }
+
+# ── BLOCK E — DATA QUALITY STATUS ──
+@app.get("/api/data-quality")
+async def api_data_quality():
+    """Returns current data quality status for all dashboard pages.
+    Used to display LIVE / STALE / BLOCKED badge in the navbar.
+    """
+    signals = GLOBAL_STATE.get("signals", {})
+    return {
+        "data_quality": signals.get("data_quality", "UNKNOWN"),
+        "macro_regime": signals.get("macro_regime", "TRANSITION"),
+        "regime_multiplier": signals.get("regime_multiplier", 1.0),
+        "last_sync": GLOBAL_STATE.get("last_sync"),
+        "active_ws_connections": len(ws_clients),
+    }
 
 # ── Frontend SPA ──
 DIST_DIR = BASE_DIR / "frontend" / "dist"

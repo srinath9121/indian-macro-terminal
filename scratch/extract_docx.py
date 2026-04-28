@@ -1,29 +1,35 @@
 import zipfile
 import xml.etree.ElementTree as ET
-import sys
 import os
+import sys
 
-def get_docx_text(path):
-    """
-    Take the path of a docx file as argument, return the text in unicode.
-    """
-    document = zipfile.ZipFile(path)
-    xml_content = document.read('word/document.xml')
-    document.close()
-    tree = ET.fromstring(xml_content)
+# Ensure output is UTF-8
+if sys.stdout.encoding != 'utf-8':
+    import io
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
-    ns = {'w': 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'}
-    text = []
-    for paragraph in tree.findall('.//w:p', ns):
-        paragraph_text = []
-        for run in paragraph.findall('.//w:t', ns):
-            paragraph_text.append(run.text)
-        text.append("".join(paragraph_text))
-    return "\n".join(text)
+def extract_text_from_docx(docx_path):
+    try:
+        with zipfile.ZipFile(docx_path, 'r') as zip_ref:
+            xml_content = zip_ref.read('word/document.xml')
+            tree = ET.fromstring(xml_content)
+            
+            # Namespaces for OOXML
+            namespaces = {'w': 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'}
+            
+            texts = []
+            for paragraph in tree.findall('.//w:p', namespaces):
+                p_text = ""
+                for run in paragraph.findall('.//w:t', namespaces):
+                    if run.text:
+                        p_text += run.text
+                if p_text:
+                    texts.append(p_text)
+            
+            return "\n".join(texts)
+    except Exception as e:
+        return f"Error: {e}"
 
-if __name__ == "__main__":
-    docx_path = sys.argv[1]
-    if os.path.exists(docx_path):
-        print(get_docx_text(docx_path))
-    else:
-        print(f"File not found: {docx_path}")
+docx_path = r"c:\Users\Srikanth\Downloads\india_macro_model_layer (1).docx"
+text = extract_text_from_docx(docx_path)
+print(text)
