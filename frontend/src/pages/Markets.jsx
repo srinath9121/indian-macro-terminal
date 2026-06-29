@@ -8,7 +8,7 @@ function MarketRow({ label, value, change, pct, up }) {
   return (
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
       <div style={{ color: "var(--muted)", fontSize: 10, fontFamily: "var(--mono)" }}>{label}</div>
-      <div style={{ color: "var(--text)", fontSize: 12, fontWeight: 700, fontFamily: "var(--mono)" }}>{value}</div>
+      <div style={{ color: up !== undefined ? (up ? "var(--green)" : "var(--red)") : "var(--text)", fontSize: 12, fontWeight: 700, fontFamily: "var(--mono)" }}>{value}</div>
       <div style={{ color: up ? "var(--green)" : "var(--red)", fontSize: 10, fontFamily: "var(--mono)" }}>
         {up ? "▲" : "▼"} {change} ({pct}%)
       </div>

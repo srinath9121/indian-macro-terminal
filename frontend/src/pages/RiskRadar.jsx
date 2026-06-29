@@ -59,8 +59,8 @@ export default function RiskRadar() {
                   transition: "transform 1s ease-out"
                 }} />
                 <div style={{ position: "absolute", bottom: 0, width: "100%", textAlign: "center" }}>
-                   <div style={{ color: riskColor(overall), fontSize: 28, fontWeight: 900, fontFamily: "var(--mono)" }}>{overall}</div>
-                   <div style={{ color: "var(--muted)", fontSize: 8, fontFamily: "var(--mono)" }}>INDEX</div>
+                   <div style={{ color: riskColor(overall), fontSize: 35, fontWeight: 900, fontFamily: "var(--mono)" }}>{overall}</div>
+                   <div style={{ color: "var(--muted)", fontSize: "0.65rem", fontFamily: "var(--mono)", textTransform: "uppercase", letterSpacing: "0.08em" }}>INDEX</div>
                 </div>
               </div>
               <Badge color={overall > 60 ? "red" : overall > 40 ? "yellow" : "green"}>
@@ -122,15 +122,27 @@ export default function RiskRadar() {
 
            <Section title="RISK ALERTS">
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                 {(alertsData?.alerts || []).slice(0, 5).map((a, i) => (
-                   <div key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start", borderBottom: "1px solid var(--border)", paddingBottom: 8 }}>
-                      <span style={{ width: 6, height: 6, borderRadius: "50%", background: a.priority === "High" ? "var(--red)" : "var(--yellow)", marginTop: 4 }} />
-                      <div>
-                        <div style={{ color: "var(--text)", fontSize: 11, fontWeight: 600, fontFamily: "var(--mono)" }}>{a.title}</div>
-                        <div style={{ color: "var(--muted)", fontSize: 9, fontFamily: "var(--mono)", marginTop: 2 }}>{new Date(a.timestamp).toLocaleTimeString()}</div>
-                      </div>
-                   </div>
-                 ))}
+                 {(() => {
+                   const apiAlerts = (alertsData?.alerts || []).slice(0, 5);
+                   // Generate rules-based alerts from computed risk values when API is empty
+                   const seeded = [];
+                   if (brent > 80) seeded.push({ title: `Brent Crude at $${brent.toFixed(0)} — above $80 threshold`, priority: 'High', time: 'LIVE' });
+                   if (vix > 16) seeded.push({ title: `India VIX at ${vix.toFixed(1)} — elevated caution zone`, priority: 'Medium', time: 'LIVE' });
+                   if (usdInr > 84) seeded.push({ title: `USD/INR at ${usdInr.toFixed(2)} — rupee under pressure`, priority: 'Medium', time: 'LIVE' });
+                   if (inflation > 5) seeded.push({ title: `CPI Inflation at ${inflation.toFixed(1)}% — above RBI comfort band`, priority: 'Medium', time: 'LIVE' });
+                   if (seeded.length === 0) seeded.push({ title: 'All macro thresholds within normal range', priority: 'Low', time: 'LIVE' });
+                   const displayAlerts = apiAlerts.length > 0 ? apiAlerts.map(a => ({ title: a.title, priority: a.priority, time: new Date(a.timestamp).toLocaleTimeString() })) : seeded;
+                   const dotColor = (p) => p === 'High' ? 'var(--red)' : p === 'Medium' ? 'var(--yellow)' : 'var(--green)';
+                   return displayAlerts.map((a, i) => (
+                     <div key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start", borderBottom: "1px solid var(--border)", paddingBottom: 8 }}>
+                       <span style={{ width: 7, height: 7, borderRadius: "50%", background: dotColor(a.priority), marginTop: 3, flexShrink: 0, boxShadow: `0 0 6px ${dotColor(a.priority)}` }} />
+                       <div>
+                         <div style={{ color: "var(--text)", fontSize: 10, fontWeight: 600, fontFamily: "var(--mono)" }}>{a.title}</div>
+                         <div style={{ color: "var(--muted)", fontSize: 8, fontFamily: "var(--mono)", marginTop: 2 }}>{a.time} · {a.priority?.toUpperCase()}</div>
+                       </div>
+                     </div>
+                   ));
+                 })()}
               </div>
            </Section>
 

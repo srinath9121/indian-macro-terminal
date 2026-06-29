@@ -22,4 +22,6 @@ def get_docx_text(path):
         return str(e)
 
 path = r'c:\Users\Srikanth\Downloads\india_macro_terminal\india_macro_terminal\frontend\src\india_macro_terminal_audit_v2.docx'
-print(get_docx_text(path))
+with open('audit_contents.txt', 'w', encoding='utf-8') as f:
+    f.write(get_docx_text(path))
+print("Saved docx text to audit_contents.txt")

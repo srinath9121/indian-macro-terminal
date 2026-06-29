@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Layout from '../components/layout/Layout';
 import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
@@ -20,6 +20,18 @@ const MacroMetric = ({ title, value, subValue, status }) => (
 
 export default function Macro() {
   const { macroData, globalSignal } = useTerminalStore();
+  const [calendarEvents, setCalendarEvents] = useState([]);
+
+  useEffect(() => {
+    fetch('/api/macro-calendar')
+      .then(r => r.json())
+      .then(data => {
+        if (data && Array.isArray(data)) {
+          setCalendarEvents(data);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const metrics = [
     { title: "GDP GROWTH (YoY)", value: macroData?.gdp?.value ? `${macroData.gdp.value}%` : "6.8%", sub: "Q4 FY24", status: macroData?.gdp?.status || "Strong" },
@@ -132,10 +144,10 @@ export default function Macro() {
                   { t: '1Y', c: '6.63', ch: '+2 bps', up: true },
                   { t: '10Y', c: '7.12', ch: '+6 bps', up: true }
                 ].map(bond => (
-                  <tr key={bond.t} style={{ borderBottom: "1px solid var(--border)", fontSize: 10 }}>
-                    <td style={{ padding: "8px 0", color: "var(--muted-bright)", fontFamily: "var(--mono)" }}>{bond.t}</td>
-                    <td style={{ padding: "8px 0", textAlign: "right", color: "var(--text)", fontWeight: 700, fontFamily: "var(--mono)" }}>{bond.c}</td>
-                    <td style={{ padding: "8px 0", textAlign: "right", color: bond.up ? "var(--green)" : "var(--red)", fontFamily: "var(--mono)" }}>{bond.ch}</td>
+                  <tr key={bond.t} style={{ borderBottom: "1px solid var(--border)", fontSize: 10, ...(bond.t === '10Y' ? { borderLeft: '3px solid #2563EB', paddingLeft: 6 } : {}) }}>
+                    <td style={{ padding: "8px 0", paddingLeft: bond.t === '10Y' ? 6 : 0, color: bond.t === '10Y' ? '#2563EB' : "var(--muted-bright)", fontFamily: "var(--mono)", fontWeight: bond.t === '10Y' ? 700 : 400 }}>{bond.t}</td>
+                    <td style={{ padding: "8px 0", textAlign: "right", color: "var(--text)", fontWeight: 700, fontFamily: "var(--mono)", fontSize: bond.t === '10Y' ? 11 : 10 }}>{bond.c}</td>
+                    <td style={{ padding: "8px 0", textAlign: "right", color: bond.up ? "var(--green)" : "var(--red)", fontFamily: "var(--mono)", fontWeight: bond.t === '10Y' ? 700 : 400 }}>{bond.ch}</td>
                   </tr>
                 ))}
               </tbody>
@@ -144,18 +156,15 @@ export default function Macro() {
 
           <Section title="MACRO CALENDAR">
              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {[
-                  { date: 'MAY 27', event: 'GDP GROWTH (Q4)', loc: 'IN' },
-                  { date: 'MAY 29', event: 'RBI POLICY MEET', loc: 'IN' },
-                  { date: 'JUN 03', event: 'MFG PMI (MAY)', loc: 'IN' },
-                  { date: 'JUN 05', event: 'US PAYROLLS', loc: 'US' }
-                ].map(item => (
-                  <div key={item.event} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 9, borderBottom: "1px solid var(--border)", paddingBottom: 6 }}>
-                    <span style={{ color: "var(--blue)", width: 40, fontFamily: "var(--mono)" }}>{item.date}</span>
-                    <span style={{ color: "var(--text)", flex: 1, fontWeight: 600, paddingLeft: 10, fontFamily: "var(--mono)" }}>{item.event}</span>
-                    <span style={{ color: "var(--muted)", fontWeight: 700, fontFamily: "var(--mono)" }}>{item.loc}</span>
-                  </div>
-                ))}
+               {calendarEvents.length === 0 ? (
+                 <div style={{ color: "var(--muted)", fontSize: 10, fontFamily: "var(--mono)", textAlign: "center", padding: "20px 0" }}>No upcoming events in next 60 days</div>
+               ) : calendarEvents.map(item => (
+                 <div key={item.label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 9, borderBottom: "1px solid var(--border)", paddingBottom: 6 }}>
+                   <span style={{ color: "var(--blue)", width: 50, fontFamily: "var(--mono)", fontSize: 8 }}>{item.date?.slice(5).replace('-', ' ')}</span>
+                   <span style={{ color: "var(--text)", flex: 1, fontWeight: 600, paddingLeft: 8, fontFamily: "var(--mono)" }}>{item.label}</span>
+                   <span style={{ color: item.urgency === 'red' ? "var(--red)" : item.urgency === 'amber' ? "var(--yellow)" : "var(--green)", fontSize: 8, fontFamily: "var(--mono)", fontWeight: 700 }}>{item.days_until}d</span>
+                 </div>
+               ))}
              </div>
           </Section>
         </div>

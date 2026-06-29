@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
 import Layout from "../components/layout/Layout";
 import Badge from "../components/ui/Badge";
 import Sparkline from "../components/charts/Sparkline";
@@ -6,6 +7,7 @@ import Globe from "../components/globe/Globe";
 import HomepageGlobe from "../components/globe/HomepageGlobe";
 import ErrorBoundary from "../components/ui/ErrorBoundary";
 import { useTerminalStore } from "../store/useTerminalStore";
+import ParticleBackground from '../components/ParticleBackground';
 
 function ScoreCard({ title, label, labelColor, value, sub, sparkData, sparkColor }) {
   return (
@@ -50,12 +52,32 @@ export default function Pulse() {
   const navigate = useNavigate();
   const { marketData, macroData, adaniStocks, globalSignal, alertsData, isLoading } = useTerminalStore();
 
+  const [fiiData, setFiiData] = useState(null);
+  useEffect(() => {
+    fetch('/api/fii-history').then(r => r.json()).then(d => setFiiData(d)).catch(() => {});
+    const id = setInterval(() => {
+      fetch('/api/fii-history').then(r => r.json()).then(d => setFiiData(d)).catch(() => {});
+    }, 300000);
+    return () => clearInterval(id);
+  }, []);
+
   if (isLoading && !marketData) {
     return <Layout><div style={{ display: "flex", height: "80vh", alignItems: "center", justifyContent: "center", color: "var(--muted)", fontFamily: "var(--mono)", fontSize: 13 }}>CONNECTING TO TERMINAL...</div></Layout>;
   }
 
-  const fiiNet = marketData?.fii_flows?.net_value ?? -3247;
-  const fiiTrend = marketData?.fii_flows?.trend ?? "outflow";
+  const fiiUnavailable = fiiData?.unavailable === true;
+  const fiiNet   = fiiUnavailable ? null : (fiiData?.fii?.net ?? marketData?.fiiFlows?.netValue ?? null);
+  const fiiTrend = fiiUnavailable
+    ? "unavailable"
+    : fiiNet != null
+      ? (fiiNet >= 0 ? "inflow" : "outflow")
+      : (marketData?.fiiFlows?.trend ?? "neutral");
+  const fiiNetDisplay = fiiUnavailable
+    ? "DATA UNAVAIL"
+    : fiiNet != null
+      ? `${fiiNet >= 0 ? "+" : ""}₹${Math.abs(fiiNet).toLocaleString("en-IN", { maximumFractionDigits: 0 })} Cr`
+      : "--";
+
   const gdp = macroData?.gdp ?? {};
   const inflation = macroData?.inflation ?? {};
   const liquidity = macroData?.liquidity ?? {};
@@ -86,6 +108,7 @@ export default function Pulse() {
 
   return (
     <Layout>
+      <ParticleBackground />
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }} className="animate-fade-in">
 
         {/* Row 1: Scoreboard + Globe */}
@@ -99,7 +122,7 @@ export default function Pulse() {
               <ScoreCard title="GROWTH" label={gdp.status || "Strong"} labelColor="var(--green)" value={gdp.value ? `${gdp.value}% GDP Forecast` : "6.8% GDP Forecast"} sparkData={[3,4,5,4,6,5,7]} sparkColor="var(--green)" />
               <ScoreCard title="INFLATION" label={inflation.status || "Rising"} labelColor="var(--red)" value={inflation.value ? `${inflation.value}% CPI YoY` : "5.1% CPI YoY"} sparkData={[4,5,5,6,6,7,7]} sparkColor="var(--red)" />
               <ScoreCard title="LIQUIDITY" label={liquidity.status || "Tightening"} labelColor="var(--yellow)" sub="System Liquidity" sparkData={[6,5,5,4,4,3,3]} sparkColor="var(--yellow)" />
-              <ScoreCard title="FII FLOW" label={fiiTrend === "outflow" ? "Negative" : "Positive"} labelColor={fiiTrend === "outflow" ? "var(--red)" : "var(--green)"} value={`₹${fiiNet.toLocaleString()} Cr`} sub="Net Institutional" sparkData={fiiTrend === "outflow" ? [5,4,4,3,4,3,2] : [2,3,4,3,5,4,6]} sparkColor={fiiTrend === "outflow" ? "var(--red)" : "var(--green)"} />
+              <ScoreCard title="FII FLOW" label={fiiTrend === "outflow" ? "Negative" : fiiTrend === "unavailable" ? "Unavailable" : "Positive"} labelColor={fiiTrend === "outflow" ? "var(--red)" : fiiTrend === "unavailable" ? "var(--muted)" : "var(--green)"} value={fiiNetDisplay} sub="Net Institutional" sparkData={fiiTrend === "outflow" ? [5,4,4,3,4,3,2] : [2,3,4,3,5,4,6]} sparkColor={fiiTrend === "outflow" ? "var(--red)" : fiiTrend === "unavailable" ? "var(--muted)" : "var(--green)"} />
               <MarketBiasCard state={signalState} confidence={signalConf} />
             </div>
           </div>
@@ -167,9 +190,18 @@ export default function Pulse() {
               {marketCards.map(c => (
                 <div key={c.label} style={{ flex: 1, background: "var(--nav)", borderRadius: 6, padding: "10px" }}>
                   <div style={{ color: "var(--muted)", fontSize: 9, fontFamily: "var(--mono)" }}>{c.label}</div>
-                  <div style={{ color: "var(--text)", fontSize: 14, fontWeight: 700, fontFamily: "var(--mono)", margin: "4px 0" }}>{c.val ? Number(c.val).toLocaleString("en-IN", { minimumFractionDigits: 2 }) : "--"}</div>
-                  <div style={{ color: c.up ? "var(--green)" : "var(--red)", fontSize: 9, fontFamily: "var(--mono)" }}>{c.up ? "▲" : "▼"} {c.chg ?? 0} ({c.pct ?? 0}%)</div>
-                  <Sparkline color={c.up ? "var(--green)" : "var(--red)"} points={c.up ? [3,4,3,5,4,6,5] : [6,5,6,4,5,3,4]} height={24} width={70} />
+                  <div style={{ color: "var(--text)", fontSize: 14, fontWeight: 700, fontFamily: "var(--mono)", margin: "4px 0" }}>{c.val != null ? Number(c.val).toLocaleString("en-IN", { minimumFractionDigits: 2 }) : "--"}</div>
+                  {c.val != null ? (
+                    <>
+                      <div style={{ color: c.up ? "var(--green)" : "var(--red)", fontSize: 9, fontFamily: "var(--mono)" }}>{c.up ? "▲" : "▼"} {c.chg ?? 0} ({c.pct ?? 0}%)</div>
+                      <div style={{ marginTop: 6 }}><Sparkline color={c.up ? "var(--green)" : "var(--red)"} points={c.up ? [3,4,3,5,4,6,5] : [6,5,6,4,5,3,4]} height={24} width={70} /></div>
+                    </>
+                  ) : (
+                    <>
+                      <div style={{ color: "var(--muted)", fontSize: 8, fontFamily: "var(--mono)" }}>DATA OFFLINE</div>
+                      <div style={{ height: 24, fontSize: 8, color: "#475569", fontFamily: "var(--mono)", display: "flex", alignItems: "center" }}>NSE IP BLOCKED</div>
+                    </>
+                  )}
                 </div>
               ))}
             </div>

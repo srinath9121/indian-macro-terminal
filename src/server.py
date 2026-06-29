@@ -22,7 +22,10 @@ if str(BASE_DIR) not in sys.path:
 import yfinance as yf
 import pytz
 import feedparser
+import threading
 from src.nse_fetcher import NSEMoversFetcher
+
+
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -96,6 +99,47 @@ MARKET_TICKERS = {
     "USD/INR":   "USDINR=X",
     "INDIAVIX":  "^INDIAVIX",
 }
+
+# ─────────────────────────────────────────────────────
+# MODULE-LEVEL INDEX CACHE (Fix B)
+# Runs a background thread every 5 min via threading.Timer.
+# This prevents Render's 512MB RAM limit from killing the yfinance
+# process when called on a request — the cache is always warm.
+# ─────────────────────────────────────────────────────
+_INDEX_CACHE: dict = {}
+
+def _refresh_index_cache():
+    """Fetch all market-index tickers via yfinance and write to _INDEX_CACHE."""
+    global _INDEX_CACHE
+    _log = logging.getLogger(__name__)
+    try:
+        for sym in MARKET_TICKERS.values():
+            try:
+                hist = yf.Ticker(sym).history(period="2d")
+                if not hist.empty and len(hist) >= 2:
+                    curr = float(hist["Close"].iloc[-1])
+                    prev = float(hist["Close"].iloc[-2])
+                    ch   = curr - prev
+                    _INDEX_CACHE[sym] = {
+                        "price":   round(curr, 2),
+                        "change":  round(ch, 2),
+                        "pChange": round(ch / prev * 100, 2),
+                        "is_up":   ch >= 0,
+                    }
+            except Exception as e:
+                _log.warning(f"Index cache: {sym} failed — {e}")
+        _log.info(f"Index cache refreshed ({len(_INDEX_CACHE)} tickers)")
+    except Exception as e:
+        _log.error(f"Index cache refresh error: {e}")
+    finally:
+        t = threading.Timer(300, _refresh_index_cache)   # reschedule every 5 min
+        t.daemon = True
+        t.start()
+
+# Start on import: wait 15s so uvicorn finishes binding first
+_t0 = threading.Timer(15, _refresh_index_cache)
+_t0.daemon = True
+_t0.start()
 
 # ─────────────────────────────────────────────────────
 # CACHE
@@ -220,7 +264,7 @@ async def unified_sync_service():
                     }
                 except Exception: continue
 
-            # fallback for yfinance ^NSEI failing
+            # fallback for yfinance ^NSEI failing — try NSE direct API
             if "NIFTY" not in m_res:
                 try:
                     from src.nse_session import nse_session_manager
@@ -240,6 +284,15 @@ async def unified_sync_service():
                 except Exception as e:
                     logger.warning(f"NSE fallback failed: {e}")
 
+            # ── _INDEX_CACHE merge (Fix B) ──
+            # For any index still missing after the batch download + NSE fallback,
+            # use the background-thread cache that's refreshed every 5 min.
+            for name, sym in MARKET_TICKERS.items():
+                if name not in m_res and sym in _INDEX_CACHE:
+                    m_res[name] = _INDEX_CACHE[sym]
+                    logger.info(f"Using _INDEX_CACHE for {name} ({sym})")
+
+
             # ── Run Data Validation (Block C) ──
             validation = validate_inputs(m_res, fx_raw)
             if validation['data_quality'] == 'BLOCKED':
@@ -252,20 +305,46 @@ async def unified_sync_service():
 
             # We can store the data quality flag in the global state so the UI knows if data is STALE/LIVE
             pulse_extra = {'data_quality': validation['data_quality']}
-            # ── Commodities ──
+
+            # ── Commodities (Fix A) ──
+            # Use batch-download data where available. For any ticker where
+            # batch close is null/missing, fall back to yf.Ticker.history(period='1d')
+            # which is more reliable for CMX/ICE front-month futures.
             c_res = []
             for c in COMMODITIES_CONFIG:
                 try:
-                    sym   = c["ticker"]
-                    if sym not in df.columns.levels[0]: continue
-                    close = df[sym]["Close"].dropna()
-                    if len(close) < 2: continue
+                    sym  = c["ticker"]
+                    close = None
+
+                    # --- Primary: use the batch download result ---
+                    try:
+                        if sym in df.columns.levels[0]:
+                            _close = df[sym]["Close"].dropna()
+                            if len(_close) >= 2 and not _close.isna().any():
+                                close = _close
+                    except Exception:
+                        pass
+
+                    # --- Fallback: per-ticker history() (Fix A) ---
+                    if close is None or len(close) < 2:
+                        try:
+                            logger.info(f"Batch data missing for {sym}, using history() fallback")
+                            hist = yf.Ticker(sym).history(period="5d")
+                            if not hist.empty:
+                                close = hist["Close"].dropna()
+                        except Exception as fe:
+                            logger.warning(f"history() fallback failed for {sym}: {fe}")
+
+                    if close is None or len(close) < 2:
+                        logger.warning(f"Skipping commodity {sym} — no valid price data")
+                        continue
+
                     curr, prev = float(close.iloc[-1]), float(close.iloc[-2])
 
+                    # Sanity check for Brent (should be between $50-$150)
                     if c["id"] == "brent":
-                        if not (60 <= curr <= 80):
-                            logger.warning(f"Brent rejected: {curr}")
-                            curr = max(60, min(80, curr))
+                        if not (50 <= curr <= 150):
+                            logger.warning(f"Brent price {curr} outside valid range — data quality flagged")
                             validation['data_quality'] = 'BLOCKED'
 
                     inr_curr = round(c["formula"](curr, fx), 2)
@@ -301,7 +380,9 @@ async def unified_sync_service():
                             "direction": item["direction"],
                             "is_up":   inr_ch >= 0,
                         }
-                except Exception: continue
+                except Exception as ce:
+                    logger.warning(f"Commodity processing failed for {c.get('id', '?')}: {ce}")
+                    continue
 
             # ── BRENT for Pulse ──
             for item in c_res:
@@ -756,6 +837,100 @@ async def api_sparklines():
     set_cached("sparklines", res, 1800) # cache for 30 mins to avoid yf limits
     return res
 
+@app.get("/api/alerts")
+async def api_alerts():
+    """Returns structured alerts for the Alerts page."""
+    raw = GLOBAL_STATE.get("minute_alerts", [])
+    sig = GLOBAL_STATE.get("signals", {})
+    mkt = GLOBAL_STATE.get("market", {})
+
+    # Build structured alert list from minute_alerts
+    structured = []
+    for i, a in enumerate(raw):
+        sev = a.get("severity", "LOW")
+        priority = "High" if sev == "HIGH" else "Medium" if sev == "MEDIUM" else "Low"
+        category = "Risk"
+        if "FII" in a.get("event", "") or "DII" in a.get("event", ""):
+            category = "FII/DII"
+        elif "Macro" in a.get("event", "") or "IRS" in a.get("event", ""):
+            category = "Macro"
+        elif "Market" in a.get("event", "") or "Nifty" in a.get("event", "") or "VIX" in a.get("event", ""):
+            category = "Market"
+        elif "Commodity" in a.get("event", "") or "Brent" in a.get("event", "") or "Gold" in a.get("event", ""):
+            category = "Commodities"
+        structured.append({
+            "id": f"alert_{i}",
+            "title": a.get("stock", "SYSTEM") + " — " + a.get("event", "")[:40],
+            "description": a.get("event", ""),
+            "priority": priority,
+            "category": category,
+            "timestamp": datetime.now(IST).isoformat(),
+        })
+
+    # Seed macro-level alerts if list is small or empty
+    irs = sig.get("irs", 50)
+    vix = mkt.get("INDIAVIX", {}).get("price", 0) if isinstance(mkt.get("INDIAVIX"), dict) else 0
+
+    if irs > 60:
+        structured.insert(0, {
+            "id": "macro_irs",
+            "title": f"IRS ELEVATED — Score {irs}/100",
+            "description": f"India Risk Score crossed 60. Geopolitical tension index elevated. Monitor macro environment.",
+            "priority": "High" if irs > 75 else "Medium",
+            "category": "Macro",
+            "timestamp": datetime.now(IST).isoformat(),
+        })
+    if vix and vix > 18:
+        structured.insert(0, {
+            "id": "market_vix",
+            "title": f"INDIA VIX ELEVATED — {vix:.1f}",
+            "description": f"India VIX above 18 indicates elevated market uncertainty. Options premium rising.",
+            "priority": "High" if vix > 22 else "Medium",
+            "category": "Market",
+            "timestamp": datetime.now(IST).isoformat(),
+        })
+
+    # Always ensure at least 3 informational alerts are shown
+    if len(structured) < 3:
+        dq = mkt.get("data_quality", "LIVE")
+        structured.append({
+            "id": "system_status",
+            "title": "TERMINAL OPERATIONAL",
+            "description": f"All systems nominal. Data quality: {dq}. Last sync: {GLOBAL_STATE.get('last_sync', 'pending')}.",
+            "priority": "Low",
+            "category": "Macro",
+            "timestamp": datetime.now(IST).isoformat(),
+        })
+        structured.append({
+            "id": "fii_monitor",
+            "title": "FII FLOW MONITORING ACTIVE",
+            "description": "Institutional flow tracking operational. Alert fires when net FII selling exceeds ₹2000 Cr.",
+            "priority": "Low",
+            "category": "FII/DII",
+            "timestamp": datetime.now(IST).isoformat(),
+        })
+        structured.append({
+            "id": "risk_monitor",
+            "title": "ADANI RISK RADAR MONITORING",
+            "description": "Rule-based danger scoring active across 10 Adani stocks. Alert fires when score crosses 60.",
+            "priority": "Low",
+            "category": "Risk",
+            "timestamp": datetime.now(IST).isoformat(),
+        })
+
+    high   = sum(1 for a in structured if a["priority"] == "High")
+    medium = sum(1 for a in structured if a["priority"] == "Medium")
+    low    = sum(1 for a in structured if a["priority"] == "Low")
+
+    return {
+        "alerts": structured[:50],
+        "high_count":   high,
+        "medium_count": medium,
+        "low_count":    low,
+        "total":        len(structured),
+        "timestamp":    datetime.now(IST).isoformat(),
+    }
+
 @app.get("/api/fii-history")
 async def api_fii_dii():
     cached = get_cached("fii_dii")
@@ -769,17 +944,17 @@ async def api_fii_dii():
     except Exception as e:
         logger.warning(f"Real FII data fetch failed: {e}")
         
-    # Bug #6 fix: Provide fallback if NSE is blocked so Pulse isn't stuck loading
-    import random
-    proxy_val = round(random.uniform(-2500, 2000), 2)
+    # Fix C: Do NOT return fake random numbers. Show 'Data unavailable' so the
+    # frontend can display an honest message instead of misleading stale figures.
     res = {
-        "fii": {"buy": 15000 + proxy_val, "sell": 15000, "net": proxy_val, "net_label": "NET BUYING" if proxy_val > 0 else "NET SELLING"},
-        "dii": {"buy": 12000, "sell": 12000 + proxy_val, "net": -proxy_val, "net_label": "NET BUYING" if -proxy_val > 0 else "NET SELLING"},
-        "month_to_date_fii_net": proxy_val * 10,
+        "fii": {"net": None, "net_label": "Data unavailable"},
+        "dii": {"net": None, "net_label": "Data unavailable"},
+        "month_to_date_fii_net": None,
         "date": datetime.now(IST).strftime("%d %b %Y"),
-        "note": "Volume proxy"
+        "note": "NSE API blocked on this server. Static file downloads are not affected.",
+        "unavailable": True,
     }
-    set_cached("fii_dii", res, 300)
+    set_cached("fii_dii", res, 60)   # short TTL so it retries soon
     return res
 
 @app.get("/api/fii-history-chart")
