@@ -1,0 +1,292 @@
+INDIA MACRO TERMINAL
+ANTI-GRAVITY BUILD DOCUMENT
+Code Audit · Bug Registry · Prompt Blocks · Roadmap
+April 27, 2026  |  Audited: Claude Sonnet 4.6  |  Stack: FastAPI + React + Vite + Three.js
+
+1. WHAT YOU HAVE BUILT
+
+Architecture
+Layer
+What Exists
+Status
+Backend
+FastAPI server.py 1207 lines, WebSocket, rate limiting, yfinance batch sync, 5-layer warning system
+Running on Render. PORT env var respected.
+Frontend
+React + Vite, 6 pages, Three.js globe, recharts, 40+ components, scanline tab transitions
+Renders. Live WebSocket feed working.
+Data
+yfinance (commodities + indices), NSE movers, GDELT, feedparser, CourtListener/SEBI/PIB
+Commodity prices STALE. USD/INR wrong. NSE IP-blocked on Render.
+ML / Risk
+5-layer Adani danger score with weights: options 30%, legal 25%, macro 20%, smart 15%, sentiment 10%
+All scores = 0. LightGBM model file missing. Layers return defaults.
+
+Pages Status
+Page
+Working
+Broken
+PULSE
+Index cards (Nifty/Sensex/VIX/USD-INR), sparklines, IRS gauge, WebSocket updates
+FII flows stuck on 'Loading...'. Sector performance all +0.00%. Half the page empty.
+MACRO
+GST/Power/Monsoon/FII-Derivatives/Calendar widget layouts render
+All sub-APIs return stub/hardcoded data. No real numbers anywhere.
+GEO MAP
+Globe renders, arc flows animated, commodity filter, global impact signals panel
+GTI = 0 always (GDELT rate-limited). Country risk coloring not implemented. Click modal placeholder only.
+MARKETS
+Real NSE gainers/losers/volume shockers, FII 30-day bar chart
+Bottom-left sparkline panel renders empty black box.
+COMMODITIES
+All 12 commodities render, sparklines, duty notes, category tabs
+Prices STALE (Brent ~102 USD implied, real ~67). RSI stuck at 50.0. Volume N/A.
+RISK RADAR
+Gauge, 10 Adani stock cards, 5 status dots each, correlation panel
+All scores 0. All dots green. No real data. The most important page. The most broken.
+
+2. BUG REGISTRY
+Confirmed by reading code, not guessed. Every line number references the audited server.py (1207 lines).
+
+#
+Severity
+Bug
+Root Cause
+Fix
+1
+CRITICAL
+All commodity prices wrong. Brent ~9600 INR (real ~5400). Gold ~155k (real ~97k).
+yfinance returning stale cache. USD/INR shows 94.17 (real ~84) — propagates error to every formula.
+Sanity guard: if USD/INR outside 80–90, reject and use last cached value. Add timestamp check on price data.
+2
+CRITICAL
+Platinum and Palladium formula missing ×10 multiplier. Unit says ₹/10g but computes per-gram.
+Formula: (usd/31.1035)*fx*1.10*1.03. Gold has *10, Platinum/Palladium do not.
+Add *10: (usd/31.1035)*10*fx*1.10*1.03. 2-line fix. Verify: PL=F ~1000 USD → should show ~30,600 INR/10g.
+3
+CRITICAL
+RISK RADAR all scores = 0. Flagship feature shows nothing.
+LightGBM model .pkl not committed to repo. Options layer calls NSE (IP-blocked). All layers return 0 as fallback.
+Build transparent rule-based engine from yfinance .NS data. price drop >5% + volume spike = non-zero score. No model file needed.
+4
+HIGH
+Duplicate route definitions: /api/macro/gst at lines 528 AND 642. Same for /power, /monsoon, /fii-derivatives, /max-pain, /macro-calendar.
+Copy-paste artifact. FastAPI uses first definition silently. Lines 642–726 are dead code.
+Delete lines 642–726. 10 minutes. Embarrassing if a technical reviewer finds this before you fix it.
+5
+HIGH
+FII/DII flows stuck on 'Loading...' on PULSE.
+InstitutionalFlow waits for liveData.fii_flows from WebSocket. WebSocket never sends this field.
+Fetch /api/fii-history independently on Pulse mount. Or add fii_flows to unified_sync_service broadcast.
+6
+HIGH
+Sector performance all +0.00%.
+api_sectors() hits NSE sector indices — IP-blocked on Render. Falls back to 0.
+Use yfinance sector ETF proxies (NIFTYIT, NIFTYBANK etc.) as fallback. Always returns something.
+7
+HIGH
+GTI always 0.
+GDELT rate-limits cloud IPs. gdelt_fetcher.py fails silently and returns 0.
+Cache last good GTI value. Show 'ESTIMATED' with timestamp instead of 0. Add random polling jitter (90–150s).
+8
+MEDIUM
+Signals.jsx page exists but SIGNALS tab not in App.jsx TABS array. Unreachable.
+TABS array has 6 entries, no SIGNALS. File exists at src/pages/Signals.jsx.
+Add 'SIGNALS' to TABS and wire to Signals.jsx. Or delete the file.
+9
+MEDIUM
+Risk.jsx page exists but RISK RADAR tab maps to WarningApp, not Risk.jsx. Orphaned.
+App.jsx: activeTab === 'RISK RADAR' renders <WarningApp/>. Risk.jsx is never imported.
+Delete Risk.jsx. Dead code.
+10
+MEDIUM
+Globe country risk coloring not implemented. Legend (CRITICAL/HIGH/MEDIUM/LOW) is decorative only.
+MainGlobe.jsx renders arc flows only. No pointsData or pointColor tied to risk tier.
+Add pointsData array per country with lat/lng + risk score. Use react-globe.gl pointColor prop.
+11
+MEDIUM
+RSI stuck at 50.0 (Neutral) for all 12 commodities.
+RSI computed from period='5d' — only 5 candles. Meaningless RSI output.
+Fetch period='60d' interval='1d' for RSI separately. Cache result for 24h.
+
+3. HONEST ASSESSMENT
+
+What Works As A Portfolio Piece
+UI is genuinely impressive: dark terminal aesthetic, Three.js globe, live clock, scanline transitions. Undeniable visually.
+Architecture is real: FastAPI + WebSocket + batch yfinance sync + rate limiting + 5-layer ML design. Not a tutorial project.
+Narrative is compelling: personal Adani loss → options anomaly detection → 48–72h early warning. Investors understand this.
+Commodity duty formulas are correct post-August 2024 rates. Shows domain research, not just coding.
+Disclaimer at bottom ('NOT sourced from MCX directly') shows intellectual honesty. Reviewers notice.
+6 distinct pages, globe with arc flows, FII bar charts, risk gauge. Months of real work visible.
+
+What Will Get You Caught
+Brent shows 9600 INR/barrel. Real price is ~5400. Any analyst catches this in 10 seconds.
+All RISK RADAR scores = 0. The flagship feature shows nothing. This is the first thing you demo.
+USD/INR shows 94.17. Real rate is ~84. Wrong by 12%. Every finance person knows this number.
+Duplicate routes in server.py. A senior engineer finds this in 2 minutes. Signals incomplete testing.
+'Loading...' on Pulse FII flows is visible immediately below the fold. First impressions matter.
+
+If You Have 1 Day — Fix In This Order
+USD/INR sanity guard → fixes all commodity prices automatically.
+Platinum/Palladium formula ×10 fix → 2 lines of code.
+Delete duplicate routes → 10 minutes.
+FII flows on Pulse → adds most visible dynamic content.
+Rule-based RISK RADAR scores → even rough heuristics make the page functional.
+
+4. DOCUMENTED PROMPT BLOCKS
+Reusable prompt patterns from this build. Each is a drop-in block for anti-gravity.
+
+BLOCK 1: Full Code Audit
+Upload [zip]. Read every file. Verify in code — do not assume.
+Find: (1) critical data integrity bugs, (2) dead/unreachable code,
+(3) duplicate definitions, (4) stale data, (5) wrong formulas.
+Output: numbered registry with file+line root cause and exact fix.
+No compliments. If a number on screen is wrong, trace it to source.
+USE WHEN: Starting any session after changes. Flag: 'I am not always right — cross-check formulas against public data.'
+
+BLOCK 2: Data Integrity Verification
+Cross-check all displayed prices:
+- USD/INR: expected 82–87 (April 2026)
+- Brent: expected 60–80 USD/barrel
+- Gold: expected 2800–3500 USD/oz
+If any value fails, trace: yfinance ticker → cache TTL → formula → frontend.
+Show your math. Reverse-engineer from displayed value if needed.
+USE WHEN: Before any investor demo. USD/INR is the single root of all commodity prices — verify it first.
+
+BLOCK 3: Rule-Based Warning Scores (No Model File)
+Build a transparent rule engine for RISK RADAR using yfinance .NS data only.
+Rules (explicit if/elif, no black box):
+- Price drop >5% in 5 days → score +20
+- Price drop >10% → score +40
+- Volume >2× 20-day avg → score +15
+- Volume >3× → score +30
+- Stock >40% below 52W high → score +20
+Cap at 100. Show flags array explaining each score contribution.
+USE WHEN: Making RISK RADAR functional without NSE options access or LightGBM model.
+
+BLOCK 4: Render Free Tier Constraints
+Every feature must pass:
+1. RAM < 512MB — no model files >400MB
+2. PORT env var — never hardcode port
+3. No persistent disk — cache = in-process Python dict
+4. No background workers — use asyncio tasks in FastAPI lifespan
+5. Never call yf.download() per-request — batch only in sync loop
+6. Cold start after 15min — /health must return in <1s
+USE WHEN: Before implementing any new feature. This is a hard constraint list, not a guideline.
+
+BLOCK 5: NSE IP Block — Hard Limit
+NSE hard-blocks Render/cloud IPs.
+DO NOT attempt: nsetools, nse-india-data-api, api.nseindia.com direct calls.
+DO use:
+- yfinance .NS tickers (works from cloud)
+- Static fallback JSON files in /public/data/ (commit real snapshots weekly)
+- Accept that options chain (PCR, OI) is not available on free tier
+Build warning system around yfinance proxies only.
+USE WHEN: Any suggestion to use NSE directly. This is an architectural constraint, permanently.
+
+BLOCK 6: Pre-Demo Checklist
+Before any investor or hiring demo:
+1. Check all 6 Pulse index cards — wrong number ends credibility
+2. Open RISK RADAR — confirm scores are non-zero
+3. Confirm GTI is not 0 — show cached value with timestamp if needed
+4. Verify FII chart loads (not 'Loading...')
+5. Have Jan 2023 Hindenburg + Nov 2024 DoJ case studies ready
+6. Lead with: 'I was long Adani. I lost money. I built the warning system
+   that would have saved me.' That is the hook.
+USE WHEN: 24 hours before any presentation. Non-negotiable checklist.
+
+5. EXACT CODE PATCHES
+
+PATCH 1: USD/INR Sanity Guard
+# In unified_sync_service(), after fetching USDINR=X:
+fx_raw = float(df["USDINR=X"]["Close"].iloc[-1])
+if not (79 <= fx_raw <= 92):
+    logger.warning(f"USD/INR sanity fail: {fx_raw}. Using cached or 84.")
+    fx_raw = get_cached("usd_inr_last_good") or 84.0
+else:
+    set_cached("usd_inr_last_good", fx_raw, ttl=86400)
+fx = fx_raw
+
+PATCH 2: Platinum/Palladium Fix
+# BEFORE (wrong):
+{"id":"platinum", "formula": lambda usd, fx: (usd/31.1035)*fx*1.10*1.03}
+
+# AFTER (correct — adds *10 to match unit ₹/10g):
+{"id":"platinum", "formula": lambda usd, fx: (usd/31.1035)*10*fx*1.10*1.03}
+{"id":"palladium", "formula": lambda usd, fx: (usd/31.1035)*10*fx*1.10*1.03}
+
+# Sanity check: PL=F ~1000 USD, fx=84
+# Result: (1000/31.1035)*10*84*1.13 = ~30,600 INR/10g  ✓
+
+PATCH 3: Rule-Based Danger Score
+def compute_rule_based_danger(symbol: str, df_stock) -> dict:
+    closes = df_stock["Close"].dropna()
+    volumes = df_stock["Volume"].dropna()
+    if len(closes) < 5:
+        return {"danger_score": 0, "flags": []}
+    price_drop = (closes.iloc[-1] - closes.iloc[-5]) / closes.iloc[-5] * 100
+    vol_ratio = volumes.iloc[-1] / volumes.iloc[-5:].mean()
+    score, flags = 0, []
+    if price_drop < -10: score += 40; flags.append(f"Drop {price_drop:.1f}% in 5d")
+    elif price_drop < -5: score += 20; flags.append(f"Drop {price_drop:.1f}% in 5d")
+    if vol_ratio > 3: score += 30; flags.append(f"Volume {vol_ratio:.1f}× avg")
+    elif vol_ratio > 2: score += 15; flags.append(f"Volume {vol_ratio:.1f}× avg")
+    pct_from_high = (closes.iloc[-1] - closes.max()) / closes.max() * 100
+    if pct_from_high < -40: score += 20; flags.append(f"{pct_from_high:.1f}% from 52W high")
+    return {"danger_score": min(score, 100), "flags": flags}
+
+6. WHAT TO ADD NEXT
+
+Must Fix First (Bugs Breaking Core Promises)
+Fix
+Effort
+Impact
+USD/INR sanity guard + stale data check
+2h
+Fixes all 12 commodity prices instantly. Single highest-ROI change.
+Rule-based RISK RADAR scores
+1 day
+Flagship feature shows life. All-zeros is a dead demo.
+FII flows on Pulse (fetch independently)
+2h
+First page loads real data below the fold.
+Country risk coloring on globe
+4h
+Makes GEO MAP legend coherent. Currently decorative.
+Delete duplicate routes (lines 642–726)
+10min
+Code hygiene. A reviewer finding this before you is bad.
+
+High Value Additions
+Backtesting module: replay scoring rules on ADANIENT.NS historical data. Overlay Jan 2023 Hindenburg crash date. Show 'system would have fired on Jan 24, 2023 — 3 days before.' This single feature converts the project from demo to credible research tool.
+Alert history log: every time score crosses 35/60/80, write to JSON. Build a tab showing: alert time, price at alert, price 7 days later. Evidence-based credibility. Investors fund tools with track records.
+Macro correlation view: when VIX >20 AND FII net selling >3 days AND Brent >80, show historical Nifty drawdown distribution. Pure yfinance, 2-year lookback. No real-time needed.
+Export to PDF: 'Download Risk Report' button. Turns dashboard from 'thing to look at' into 'thing to share.' Hiring managers use tools they can forward.
+
+Do Not Add
+Real-time MCX feed — costs ₹20 lakh/year. Proper yfinance disclaimer is sufficient.
+LLM-generated news summaries per page — latency + cost + hallucination risk. GTI score is cleaner.
+NSE options chain scraping — fragile, violates ToS, breaks every 2 weeks.
+Crypto or US markets — dilutes the India macro focus. Stay specific.
+Mobile responsive layout — this is a terminal. Optimize for 1920×1080.
+
+7. WHAT THIS PROJECT SAYS ABOUT YOU
+
+What Hiring Managers See
+Full-stack capability: FastAPI + React + WebSocket + yfinance + Three.js. Not a tutorial.
+Domain knowledge: duty rates, FII vs DII, GTI, PCR, IV percentile. Not Googleable in 2 hours.
+Personal motivation: the Adani loss is authentic. Authentic beats polished every time.
+Live deployment: a URL they can open right now. Not localhost.
+Ethical design: disclaimers, data source attribution, 'not financial advice.' Shows regulatory awareness.
+
+What Makes It Undeniable
+Fix data accuracy (Bugs 1–3). Wrong numbers are the fastest path to dismissal.
+Add the Hindenburg backtest. One historical proof beats 100 architecture diagrams.
+Write a README that opens with: 'In January 2023, Hindenburg shorted Adani. I was long. I built the tool that would have warned me.' That is the hook that gets callbacks.
+Record a 3-minute Loom demo. Live prices → RISK RADAR → Jan 2023 replay. Voice-over adds context screenshots cannot.
+
+Honest Ceiling Without Fixes
+Without fixing Bugs 1–3: the project shows 'I can build complex things' — not 'I verify my work.' In 2026, AI can build complex things. What AI cannot demonstrate is judgment, domain knowledge, and the discipline to catch subtle data errors. That is your differentiator. Fix the numbers. Own the accuracy.
+
+END OF AUDIT DOCUMENT
+India Macro Terminal  |  Anti-Gravity Build Document  |  April 27, 2026

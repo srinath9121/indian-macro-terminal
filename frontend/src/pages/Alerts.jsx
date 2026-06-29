@@ -116,7 +116,13 @@ export default function Alerts() {
 
           <Section title={`LIVE ALERTS ${isLoading ? "(POLLING...)" : ""}`}>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {filtered.length === 0 ? (
+              {rawAlerts.length === 0 ? (
+                <div style={{ padding: "48px 24px", textAlign: "center", border: "1px dashed var(--border)", borderRadius: 8, background: "var(--nav)" }}>
+                  <div style={{ color: "var(--green)", fontSize: 28, marginBottom: 8 }}>✓</div>
+                  <div style={{ color: "var(--text)", fontSize: 13, fontWeight: 700, fontFamily: "var(--mono)", marginBottom: 6 }}>No active alerts</div>
+                  <div style={{ color: "var(--muted)", fontSize: 11, fontFamily: "var(--mono)" }}>All risk thresholds within normal range. System is monitoring continuously.</div>
+                </div>
+              ) : filtered.length === 0 ? (
                 <div style={{ padding: "40px 0", textAlign: "center", color: "var(--muted)", fontSize: 11, fontFamily: "var(--mono)" }}>NO ALERTS MATCHING FILTERS</div>
               ) : (
                 filtered.map(a => {

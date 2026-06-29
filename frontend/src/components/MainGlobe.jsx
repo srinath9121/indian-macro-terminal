@@ -1,5 +1,5 @@
 import Globe from 'react-globe.gl';
-import { useRef, useEffect, useState, useMemo } from 'react';
+import { useRef, useEffect, useState } from 'react';
 
 // ────── DEFAULT RISK SCORES FOR ALL COUNTRIES ──────
 const DEFAULT_COUNTRY_RISKS = {
@@ -17,68 +17,110 @@ const getCountryScore = (polygon, liveScores) => {
   const props = polygon.properties || {};
   const iso2 = props.ISO_A2 || '';
   const iso3 = props.ADM0_A3 || props.ISO_A3 || '';
-  const fips = props.FIPS_10_ || '';
-
-  return liveScores[iso2] || liveScores[iso3] || liveScores[fips]
+  return liveScores[iso2] || liveScores[iso3]
     || DEFAULT_COUNTRY_RISKS[iso2] || DEFAULT_COUNTRY_RISKS[iso3]
-    || 25; // LOW risk fallback
+    || 25;
 };
 
 const getRiskColor = (score) => {
-  if (score >= 80) return 'rgba(239, 68, 68, 1.0)';   // CRITICAL — Vibrant Red
-  if (score >= 60) return 'rgba(255, 140, 0, 1.0)';    // HIGH — Vibrant Orange
-  if (score >= 35) return 'rgba(59, 130, 246, 1.0)';   // MEDIUM — Vibrant Blue
-  return 'rgba(34, 197, 94, 1.0)';                     // LOW — Vibrant Green
+  if (score >= 80) return 'rgba(239,68,68,0.85)';
+  if (score >= 60) return 'rgba(255,140,0,0.80)';
+  if (score >= 35) return 'rgba(59,130,246,0.75)';
+  return 'rgba(34,197,94,0.70)';
 };
+
+const isMobile = () => (typeof navigator !== 'undefined') && navigator.maxTouchPoints > 0;
 
 const MainGlobe = ({ gtiValue = 50, countryScores = {}, arcsData = [], onCountryClick }) => {
   const globeEl = useRef();
-  
-  const [countries, setCountries] = useState({ features: []});
+  const [countries, setCountries] = useState({ features: [] });
   const [hoverD, setHoverD] = useState(null);
+  const isHovering = useRef(false);
 
+  // Load countries GeoJSON from bundled public folder (not CDN)
   useEffect(() => {
-    // Load country polygons from local public folder (CORS safe)
     fetch('/countries.json')
-      .then(res => res.json())
+      .then(r => r.json())
       .then(setCountries)
-      .catch(err => console.error("Globe GeoJSON Error:", err));
+      .catch(err => console.error('Globe GeoJSON Error:', err));
   }, []);
 
+  // Camera + auto-rotation setup
   useEffect(() => {
-    // Focus camera on Middle East / Asia axis on load (Command Center view)
-    if (globeEl.current) {
-      globeEl.current.pointOfView({ lat: 25, lng: 55, altitude: 2.2 }, 3000);
-      globeEl.current.controls().autoRotate = true;
-      globeEl.current.controls().autoRotateSpeed = 0.5;
+    if (!globeEl.current) return;
+    globeEl.current.pointOfView({ lat: 20, lng: 70, altitude: 2.4 }, 2500);
+    const controls = globeEl.current.controls();
+    controls.autoRotate = true;
+    controls.autoRotateSpeed = 0.4;   // ~0.75 rpm
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.08;
+
+    // Pause auto-rotation while user drags
+    const canvas = globeEl.current.renderer()?.domElement;
+    if (canvas) {
+      const pause = () => { controls.autoRotate = false; };
+      const resume = () => { if (!isHovering.current) controls.autoRotate = true; };
+      canvas.addEventListener('mousedown', pause);
+      canvas.addEventListener('mouseup', resume);
+      canvas.addEventListener('touchstart', pause, { passive: true });
+      canvas.addEventListener('touchend', resume, { passive: true });
+      return () => {
+        canvas.removeEventListener('mousedown', pause);
+        canvas.removeEventListener('mouseup', resume);
+        canvas.removeEventListener('touchstart', pause);
+        canvas.removeEventListener('touchend', resume);
+      };
     }
   }, []);
 
   return (
     <Globe
       ref={globeEl}
-      backgroundColor="#00000000" // Transparent
+      backgroundColor="#00000000"
       showAtmosphere={true}
-      atmosphereColor="#00D4FF"
-      atmosphereAltitude={0.15}
-      globeImageUrl="//unpkg.com/three-globe/example/img/earth-water.png"
-      
-      // Polygons (Countries)
+      atmosphereColor="#1d4ed8"
+      atmosphereAltitude={0.18}
+      // Use bundled Earth texture to avoid CDN latency on Render Singapore
+      globeImageUrl="/assets/earth_2048.jpg"
+      bumpImageUrl="/assets/earth_bump.jpg"
+      animateIn={true}
+      rendererConfig={{
+        antialias: !isMobile(),
+        powerPreference: 'high-performance',
+        pixelRatio: Math.min(window.devicePixelRatio, 2),
+      }}
+
+      // Country polygons (risk-colored)
       polygonsData={countries.features}
       polygonAltitude={d => d === hoverD ? 0.04 : 0.01}
       polygonCapColor={d => {
         const score = getCountryScore(d, countryScores);
         const col = getRiskColor(score);
-        return d === hoverD ? col.replace('0.75', '1').replace('0.60', '1') : col;
+        return d === hoverD ? col.replace(/0\.\d+\)/, '1)') : col;
       }}
-      polygonSideColor={() => 'rgba(0, 0, 0, 0.5)'}
-      polygonStrokeColor={() => '#111'}
-      onPolygonHover={setHoverD}
-      onPolygonClick={(d) => {
-        if (d && d.properties) onCountryClick(d.properties.ADMIN || d.properties.NAME);
+      polygonSideColor={() => 'rgba(0,0,0,0.5)'}
+      polygonStrokeColor={() => '#111827'}
+      polygonLabel={d => {
+        const score = getCountryScore(d, countryScores);
+        const name = d.properties?.ADMIN || d.properties?.NAME || 'Unknown';
+        return `<div style="background:#0f172a;border:1px solid #334155;padding:6px 10px;border-radius:6px;font-family:monospace;font-size:11px;color:#f1f5f9">
+          <b>${name}</b><br/>Risk Score: <b style="color:${getRiskColor(score)}">${score}</b>
+        </div>`;
+      }}
+      onPolygonHover={d => {
+        setHoverD(d);
+        isHovering.current = !!d;
+        if (globeEl.current) {
+          globeEl.current.controls().autoRotate = !d;
+        }
+      }}
+      onPolygonClick={d => {
+        if (d?.properties && onCountryClick) {
+          onCountryClick(d.properties.ADMIN || d.properties.NAME || 'Unknown');
+        }
       }}
 
-      // Custom Arcs for Trade/Sanction flow
+      // Animated trade/flow arcs
       arcsData={arcsData}
       arcStartLat={d => d.startLat}
       arcStartLng={d => d.startLng}
