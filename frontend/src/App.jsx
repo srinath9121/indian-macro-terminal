@@ -2,9 +2,10 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { lazy, Suspense } from "react";
 
 // Eager load — always needed
-import Pulse from "./pages/Pulse";
+import Home from "./pages/Home";
 
 // Lazy load — only when navigated to
+const Pulse = lazy(() => import("./pages/Pulse"));
 const Macro = lazy(() => import("./pages/Macro"));
 const Markets = lazy(() => import("./pages/Markets"));
 const GeoMap = lazy(() => import("./pages/GeoMap"));
@@ -38,7 +39,7 @@ export default function App() {
     <BrowserRouter>
       <Suspense fallback={<PageLoader />}>
         <Routes>
-          <Route path="/" element={<Pulse />} />
+          <Route path="/" element={<Home />} />
           <Route path="/pulse" element={<Pulse />} />
           <Route path="/macro" element={<Macro />} />
           <Route path="/markets" element={<Markets />} />
