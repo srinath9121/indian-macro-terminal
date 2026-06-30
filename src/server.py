@@ -235,7 +235,7 @@ async def unified_sync_service():
             loop = asyncio.get_event_loop()
             df = await loop.run_in_executor(
                 None,
-                lambda: yf.download(all_syms, period="5d", group_by="ticker", progress=False)
+                lambda: yf.download(all_syms, period="30d", group_by="ticker", progress=False)
             )
 
             # ── FX & Data Validation (Block C) ──
@@ -329,7 +329,7 @@ async def unified_sync_service():
                     if close is None or len(close) < 2:
                         try:
                             logger.info(f"Batch data missing for {sym}, using history() fallback")
-                            hist = yf.Ticker(sym).history(period="5d")
+                            hist = yf.Ticker(sym).history(period="30d")
                             if not hist.empty:
                                 close = hist["Close"].dropna()
                         except Exception as fe:
@@ -457,13 +457,21 @@ async def unified_sync_service():
             # ── GENERATE MINUTE ALERTS (Live Activity Log — Block B) ──
             new_alerts = []
             for sym, data in adani_prices.items():
+                pct = data.get('pct', 0.0)
                 # Price volatility alert
-                if abs(data['pct']) > 0.3:
+                if pct < -1.5:  # significant drop -> RISK
                     new_alerts.append({
                         "time": datetime.now(IST).strftime("%H:%M"),
                         "stock": sym + ".NS",
-                        "event": f"Price fluctuation {data['pct']:+.2f}%",
-                        "severity": "LOW" if abs(data['pct']) < 1 else "MEDIUM"
+                        "event": f"Crossed -1.5% alert threshold: Fell {pct:+.2f}%",
+                        "severity": "HIGH" if pct < -3.0 else "MEDIUM"
+                    })
+                elif pct > 1.5:  # significant rise -> OPPORTUNITY
+                    new_alerts.append({
+                        "time": datetime.now(IST).strftime("%H:%M"),
+                        "stock": sym + ".NS",
+                        "event": f"Upward Opportunity: Surged {pct:+.2f}%",
+                        "severity": "OPPORTUNITY"
                     })
                 
                 # Model decision alert (Block B causal chain)
@@ -850,7 +858,9 @@ async def api_alerts():
         sev = a.get("severity", "LOW")
         priority = "High" if sev == "HIGH" else "Medium" if sev == "MEDIUM" else "Low"
         category = "Risk"
-        if "FII" in a.get("event", "") or "DII" in a.get("event", ""):
+        if sev == "OPPORTUNITY":
+            category = "Opportunity"
+        elif "FII" in a.get("event", "") or "DII" in a.get("event", ""):
             category = "FII/DII"
         elif "Macro" in a.get("event", "") or "IRS" in a.get("event", ""):
             category = "Macro"

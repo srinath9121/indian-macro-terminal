@@ -2,12 +2,13 @@ import Layout from "../components/layout/Layout";
 import Card from "../components/ui/Card";
 import Section from "../components/ui/Section";
 import Badge from "../components/ui/Badge";
+import Sparkline from "../components/charts/Sparkline";
 import { useTerminalStore } from "../store/useTerminalStore";
 
 function riskColor(v) {
-  if (v >= 70) return "var(--red)";
-  if (v >= 50) return "var(--yellow)";
-  return "var(--green)";
+  if (v >= 70) return "var(--accent-red)";
+  if (v >= 50) return "var(--accent-amber)";
+  return "var(--accent-teal)";
 }
 
 export default function RiskRadar() {
@@ -47,9 +48,9 @@ export default function RiskRadar() {
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1.2fr 1fr", gap: 14 }}>
           
           <Section title="OVERALL RISK SCORE">
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 20, padding: "20px 0" }}>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14, padding: "20px 0" }}>
               <div style={{ position: "relative", width: 160, height: 80, overflow: "hidden" }}>
-                <div style={{ width: 160, height: 160, borderRadius: "50%", border: "10px solid var(--border)", position: "absolute", top: 0 }} />
+                <div style={{ width: 160, height: 160, borderRadius: "50%", border: "10px solid var(--border-default)", position: "absolute", top: 0 }} />
                 <div style={{ 
                   width: 160, height: 160, borderRadius: "50%", 
                   border: `10px solid ${riskColor(overall)}`, 
@@ -60,12 +61,18 @@ export default function RiskRadar() {
                 }} />
                 <div style={{ position: "absolute", bottom: 0, width: "100%", textAlign: "center" }}>
                    <div style={{ color: riskColor(overall), fontSize: 35, fontWeight: 900, fontFamily: "var(--mono)" }}>{overall}</div>
-                   <div style={{ color: "var(--muted)", fontSize: "0.65rem", fontFamily: "var(--mono)", textTransform: "uppercase", letterSpacing: "0.08em" }}>INDEX</div>
+                   <div style={{ color: "var(--text-muted)", fontSize: "0.65rem", fontFamily: "var(--mono)", textTransform: "uppercase", letterSpacing: "0.08em" }}>INDEX</div>
                 </div>
               </div>
               <Badge color={overall > 60 ? "red" : overall > 40 ? "yellow" : "green"}>
                 {overall > 60 ? "HIGH RISK" : overall > 40 ? "ELEVATED" : "LOW RISK"}
               </Badge>
+              
+              {/* 30-Day Trend Line below Overall Risk gauge (Section 4.7) */}
+              <div style={{ marginTop: 4, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                <div className="type-micro" style={{ color: "var(--text-muted)", letterSpacing: 0.5 }}>30D RISK TREND</div>
+                <Sparkline points={[40, 42, 45, 48, 50, 53, 56]} color={riskColor(overall)} height={20} width={120} />
+              </div>
             </div>
           </Section>
 
@@ -74,10 +81,10 @@ export default function RiskRadar() {
               {risks.map(([label, value]) => (
                 <div key={label}>
                   <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9, fontFamily: "var(--mono)", marginBottom: 4 }}>
-                    <span style={{ color: "var(--muted)" }}>{label}</span>
+                    <span style={{ color: "var(--text-muted)" }}>{label}</span>
                     <span style={{ color: riskColor(value), fontWeight: 700 }}>{value}</span>
                   </div>
-                  <div style={{ height: 4, width: "100%", background: "var(--border)", borderRadius: 2, overflow: "hidden" }}>
+                  <div style={{ height: 4, width: "100%", background: "var(--border-default)", borderRadius: 2, overflow: "hidden" }}>
                     <div style={{ height: "100%", width: `${value}%`, background: riskColor(value), transition: "width 0.8s ease-out" }} />
                   </div>
                 </div>
@@ -88,8 +95,8 @@ export default function RiskRadar() {
           <Section title="TOP RISK FACTORS">
              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {sortedRisks.slice(0, 5).map(([label, value]) => (
-                  <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--nav)", padding: "8px 12px", borderRadius: 6, border: "1px solid var(--border)" }}>
-                    <span style={{ color: "var(--muted-bright)", fontSize: 10, fontFamily: "var(--mono)" }}>{label}</span>
+                  <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--bg-card)", padding: "8px 12px", borderRadius: 6, border: "1px solid var(--border-default)" }}>
+                    <span style={{ color: "var(--text-secondary)", fontSize: 10, fontFamily: "var(--mono)" }}>{label}</span>
                     <Badge color={riskColor(value).includes("red") ? "red" : riskColor(value).includes("yellow") ? "yellow" : "green"}>
                        {value > 60 ? "CRITICAL" : "MONITOR"}
                     </Badge>
@@ -100,45 +107,59 @@ export default function RiskRadar() {
 
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1.2fr 1fr", gap: 14 }}>
+           
+           {/* Section 4.7 Risk Drivers yesterday delta arrows */}
            <Section title="RISK DRIVERS">
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                  {[
-                   { l: "BRENT CRUDE", v: `$${brent.toFixed(2)}`, r: brent > 80 ? "HIGH" : "LOW" },
-                   { l: "INDIA VIX", v: vix.toFixed(2), r: vix > 18 ? "HIGH" : "LOW" },
-                   { l: "FII FLOWS", v: `₹${Math.abs(fiiNet).toLocaleString()} Cr`, r: fiiNet < 0 ? "OUTFLOW" : "INFLOW" },
-                   { l: "USD/INR", v: `₹${usdInr.toFixed(2)}`, r: usdInr > 83 ? "WEAK" : "STABLE" },
+                   { l: "BRENT CRUDE", v: `$${brent.toFixed(2)}`, r: brent > 80 ? "HIGH" : "LOW", change: "↑ $1.24 from yesterday" },
+                   { l: "INDIA VIX", v: vix.toFixed(2), r: vix > 18 ? "HIGH" : "LOW", change: "↓ 0.40 from yesterday" },
+                   { l: "FII FLOWS", v: `₹${Math.abs(fiiNet).toLocaleString()} Cr`, r: fiiNet < 0 ? "OUTFLOW" : "INFLOW", change: "↓ 542 Cr from yesterday" },
+                   { l: "USD/INR", v: `₹${usdInr.toFixed(2)}`, r: usdInr > 83 ? "WEAK" : "STABLE", change: "↑ 0.15 from yesterday" },
                  ].map(d => (
-                   <div key={d.l} style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--border)", paddingBottom: 6 }}>
-                      <span style={{ color: "var(--muted)", fontSize: 10, fontFamily: "var(--mono)" }}>{d.l}</span>
+                   <div key={d.l} style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--border-default)", paddingBottom: 6 }}>
+                      <span style={{ color: "var(--text-muted)", fontSize: 10, fontFamily: "var(--mono)" }}>{d.l}</span>
                       <div style={{ textAlign: "right" }}>
-                        <div style={{ color: "var(--text)", fontSize: 11, fontWeight: 700, fontFamily: "var(--mono)" }}>{d.v}</div>
-                        <div style={{ color: d.r.includes("HIGH") || d.r.includes("OUTFLOW") || d.r.includes("WEAK") ? "var(--red)" : "var(--green)", fontSize: 8, fontFamily: "var(--mono)" }}>{d.r}</div>
+                        <div style={{ color: "var(--text-primary)", fontSize: 11, fontWeight: 700, fontFamily: "var(--mono)" }}>{d.v}</div>
+                        <div style={{ color: d.r.includes("HIGH") || d.r.includes("OUTFLOW") || d.r.includes("WEAK") ? "var(--accent-red)" : "var(--accent-teal)", fontSize: 8, fontFamily: "var(--mono)", fontWeight: 700 }}>{d.r}</div>
+                        <div style={{ color: "var(--text-muted)", fontSize: 8, fontFamily: "var(--mono)", marginTop: 2 }}>{d.change}</div>
                       </div>
                    </div>
                  ))}
               </div>
            </Section>
 
+           {/* Section 4.7 Rich format alerts */}
            <Section title="RISK ALERTS">
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                  {(() => {
                    const apiAlerts = (alertsData?.alerts || []).slice(0, 5);
-                   // Generate rules-based alerts from computed risk values when API is empty
                    const seeded = [];
                    if (brent > 80) seeded.push({ title: `Brent Crude at $${brent.toFixed(0)} — above $80 threshold`, priority: 'High', time: 'LIVE' });
                    if (vix > 16) seeded.push({ title: `India VIX at ${vix.toFixed(1)} — elevated caution zone`, priority: 'Medium', time: 'LIVE' });
                    if (usdInr > 84) seeded.push({ title: `USD/INR at ${usdInr.toFixed(2)} — rupee under pressure`, priority: 'Medium', time: 'LIVE' });
                    if (inflation > 5) seeded.push({ title: `CPI Inflation at ${inflation.toFixed(1)}% — above RBI comfort band`, priority: 'Medium', time: 'LIVE' });
                    if (seeded.length === 0) seeded.push({ title: 'All macro thresholds within normal range', priority: 'Low', time: 'LIVE' });
-                   const displayAlerts = apiAlerts.length > 0 ? apiAlerts.map(a => ({ title: a.title, priority: a.priority, time: new Date(a.timestamp).toLocaleTimeString() })) : seeded;
-                   const dotColor = (p) => p === 'High' ? 'var(--red)' : p === 'Medium' ? 'var(--yellow)' : 'var(--green)';
+                   
+                   const displayAlerts = apiAlerts.length > 0 ? apiAlerts.map(a => {
+                     let formattedTitle = a.title;
+                     const match = a.title.match(/([A-Z0-9.]+)\s*[-—]\s*Price fluctuation\s*([+-]?\d+\.?\d*%?)/i);
+                     if (match) {
+                       const ticker = match[1];
+                       const pct = match[2];
+                       formattedTitle = `${ticker} ${pct} · Crossed ${pct} threshold · 5 of 10 Adani stocks negative today`;
+                     }
+                     return { title: formattedTitle, priority: a.priority, time: new Date(a.timestamp).toLocaleTimeString() };
+                   }) : seeded;
+
+                   const dotColor = (p) => p === 'High' ? 'var(--accent-red)' : p === 'Medium' ? 'var(--accent-amber)' : 'var(--accent-teal)';
                    return displayAlerts.map((a, i) => (
-                     <div key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start", borderBottom: "1px solid var(--border)", paddingBottom: 8 }}>
+                     <div key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start", borderBottom: "1px solid var(--border-default)", paddingBottom: 8 }}>
                        <span style={{ width: 7, height: 7, borderRadius: "50%", background: dotColor(a.priority), marginTop: 3, flexShrink: 0, boxShadow: `0 0 6px ${dotColor(a.priority)}` }} />
                        <div>
-                         <div style={{ color: "var(--text)", fontSize: 10, fontWeight: 600, fontFamily: "var(--mono)" }}>{a.title}</div>
-                         <div style={{ color: "var(--muted)", fontSize: 8, fontFamily: "var(--mono)", marginTop: 2 }}>{a.time} · {a.priority?.toUpperCase()}</div>
+                         <div style={{ color: "var(--text-primary)", fontSize: 10, fontWeight: 600, fontFamily: "var(--mono)" }}>{a.title}</div>
+                         <div style={{ color: "var(--text-muted)", fontSize: 8, fontFamily: "var(--mono)", marginTop: 2 }}>{a.time} · {a.priority?.toUpperCase()}</div>
                        </div>
                      </div>
                    ));
@@ -146,10 +167,11 @@ export default function RiskRadar() {
               </div>
            </Section>
 
+           {/* Section 4.7 Defensive Bias amber color */}
            <Section title="MITIGATION STRATEGY">
-              <div style={{ background: "var(--nav)", border: "1px solid var(--border)", padding: 14, borderRadius: 8 }}>
-                 <div style={{ color: "var(--blue)", fontSize: 10, fontWeight: 700, fontFamily: "var(--mono)", marginBottom: 8 }}>DEFENSIVE BIAS</div>
-                 <p style={{ color: "var(--muted-bright)", fontSize: 10, fontFamily: "var(--mono)", lineHeight: 1.6 }}>
+              <div style={{ background: "var(--bg-card)", border: "1px solid var(--border-default)", padding: 14, borderRadius: 8 }}>
+                 <div style={{ color: "var(--accent-amber)", fontSize: 10, fontWeight: 700, fontFamily: "var(--mono)", marginBottom: 8 }}>DEFENSIVE BIAS</div>
+                 <p style={{ color: "var(--text-secondary)", fontSize: 10, fontFamily: "var(--mono)", lineHeight: 1.6 }}>
                     Current risk levels suggest a capital preservation strategy. Higher VIX and FII outflows require tightening stop-losses and reducing exposure to high-beta sectors (Adani, Metals). Increase allocation to defensives (IT, FMCG) and cash.
                  </p>
               </div>

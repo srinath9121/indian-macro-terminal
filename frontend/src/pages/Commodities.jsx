@@ -3,7 +3,7 @@ import Layout from "../components/layout/Layout";
 import Section from "../components/ui/Section";
 import Badge from "../components/ui/Badge";
 import { fetchApi } from "../services/api";
-import { LineChart, Line, ResponsiveContainer, Tooltip, Area, AreaChart } from "recharts";
+import { LineChart, Line, ResponsiveContainer, Tooltip, Area, AreaChart, YAxis } from "recharts";
 
 const CATEGORIES = ["ALL", "PRECIOUS", "ENERGY", "BASE METALS"];
 
@@ -16,15 +16,15 @@ const CATEGORY_MAP = {
 
 function RSIBar({ rsi = 50 }) {
   const pct = Math.min(100, Math.max(0, rsi));
-  const color = rsi > 70 ? "#f97316" : rsi < 30 ? "#00D4FF" : "#6b7280";
+  const color = rsi > 70 ? "var(--accent-amber)" : rsi < 30 ? "var(--accent-blue)" : "var(--text-muted)";
   const label = rsi > 70 ? "OVERBOUGHT" : rsi < 30 ? "OVERSOLD" : "NEUTRAL";
   return (
     <div style={{ marginTop: 8 }}>
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-        <span style={{ color: "var(--muted)", fontSize: 8, fontFamily: "var(--mono)" }}>14D RSI</span>
+        <span style={{ color: "var(--text-muted)", fontSize: 8, fontFamily: "var(--mono)" }}>14D RSI</span>
         <span style={{ color, fontSize: 8, fontFamily: "var(--mono)", fontWeight: 700 }}>{label} {rsi.toFixed(1)}</span>
       </div>
-      <div style={{ position: "relative", height: 4, background: "var(--border)", borderRadius: 2 }}>
+      <div style={{ position: "relative", height: 4, background: "var(--border-default)", borderRadius: 2 }}>
         <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${pct}%`, background: color, borderRadius: 2, transition: "width 0.5s" }} />
         <div style={{ position: "absolute", top: -2, left: `${pct}%`, width: 8, height: 8, borderRadius: "50%", background: color, transform: "translateX(-50%)", boxShadow: `0 0 6px ${color}` }} />
       </div>
@@ -33,12 +33,14 @@ function RSIBar({ rsi = 50 }) {
 }
 
 function MiniSparkline({ data = [], positive }) {
-  if (!data || data.length === 0) return <div style={{ height: 48, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--muted)", fontSize: 9, fontFamily: "var(--mono)" }}>NO DATA</div>;
+  if (!data || data.length === 0) return <div style={{ height: 48, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)", fontSize: 9, fontFamily: "var(--mono)" }}>NO DATA</div>;
   const chartData = data.map((v, i) => ({ i, v }));
-  const color = positive ? "#22c55e" : "#ef4444";
+  const color = positive ? "var(--accent-teal)" : "var(--accent-red)";
   return (
     <ResponsiveContainer width="100%" height={48}>
       <AreaChart data={chartData} margin={{ top: 2, right: 0, bottom: 0, left: 0 }}>
+        {/* YAxis with auto domain fixes the flat-line appearance (Section 4.6) */}
+        <YAxis hide domain={['auto', 'auto']} />
         <defs>
           <linearGradient id={`sg-${positive}`} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor={color} stopOpacity={0.3} />
@@ -47,7 +49,7 @@ function MiniSparkline({ data = [], positive }) {
         </defs>
         <Area type="monotone" dataKey="v" stroke={color} strokeWidth={1.5} fill={`url(#sg-${positive})`} dot={false} />
         <Tooltip
-          contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", fontSize: 9, fontFamily: "var(--mono)" }}
+          contentStyle={{ background: "var(--bg-card)", border: "1px solid var(--border-default)", fontSize: 9, fontFamily: "var(--mono)" }}
           formatter={(v) => [`₹${Number(v).toLocaleString("en-IN")}`, ""]}
           labelFormatter={() => ""}
         />
@@ -58,30 +60,32 @@ function MiniSparkline({ data = [], positive }) {
 
 function CommodityCard({ item }) {
   const isUp = item.direction === "up";
-  const accentColor = isUp ? "#22c55e" : "#ef4444";
+  const accentColor = isUp ? "var(--accent-teal)" : "var(--accent-red)";
   const cat = CATEGORY_MAP[item.id] || "OTHER";
 
-  const catColor = cat === "PRECIOUS" ? "#f59e0b" : cat === "ENERGY" ? "#f97316" : "#60a5fa";
+  const catColor = cat === "PRECIOUS" ? "var(--accent-amber)" : cat === "ENERGY" ? "var(--accent-amber)" : "var(--accent-blue)";
 
   return (
     <div style={{
-      background: "var(--card)",
-      border: `1px solid var(--border)`,
-      borderLeft: `3px solid ${accentColor}`,
+      background: isUp ? "linear-gradient(135deg, rgba(0, 212, 170, 0.04) 0%, var(--bg-card) 40%)" : "linear-gradient(135deg, rgba(239, 68, 68, 0.04) 0%, var(--bg-card) 40%)",
+      border: `1px solid var(--border-default)`,
+      borderLeft: `4px solid ${accentColor}`,
       borderRadius: 6,
       padding: "12px 14px",
       display: "flex",
       flexDirection: "column",
       gap: 6,
-      transition: "border-color 0.3s",
+      transition: "all 0.3s ease",
+      cursor: "pointer",
     }}>
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
         <div>
-          <div style={{ color: "var(--text)", fontSize: 11, fontWeight: 700, fontFamily: "var(--mono)", letterSpacing: 0.5 }}>
+          <div style={{ color: "var(--text-primary)", fontSize: 11, fontWeight: 700, fontFamily: "var(--mono)", letterSpacing: 0.5 }}>
             {item.name.toUpperCase()}
           </div>
-          <div style={{ color: "var(--muted)", fontSize: 9, fontFamily: "var(--mono)" }}>{item.unit}</div>
+          {/* Unit displays styled as 10px Inter (Section 4.6) */}
+          <div className="type-micro" style={{ fontSize: 10, color: "var(--text-secondary)" }}>{item.unit}</div>
         </div>
         <span style={{ background: `${catColor}22`, color: catColor, border: `1px solid ${catColor}44`, borderRadius: 3, fontSize: 8, padding: "2px 5px", fontFamily: "var(--mono)", fontWeight: 700 }}>
           {cat}
@@ -90,7 +94,7 @@ function CommodityCard({ item }) {
 
       {/* Price */}
       <div>
-        <div style={{ color: "var(--text)", fontSize: 22, fontWeight: 900, fontFamily: "var(--mono)", letterSpacing: -0.5 }}>
+        <div style={{ color: "var(--text-primary)", fontSize: 22, fontWeight: 900, fontFamily: "var(--mono)", letterSpacing: -0.5 }}>
           ₹{Number(item.inr_price).toLocaleString("en-IN", { maximumFractionDigits: 0 })}
         </div>
         <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 2 }}>
@@ -111,14 +115,14 @@ function CommodityCard({ item }) {
 
       {/* India Note */}
       {item.india_note && (
-        <div style={{ color: "var(--muted)", fontSize: 9, fontFamily: "var(--mono)", fontStyle: "italic", borderTop: "1px solid var(--border)", paddingTop: 6 }}>
+        <div style={{ color: "var(--text-secondary)", fontSize: 9, fontFamily: "var(--mono)", fontStyle: "italic", borderTop: "1px solid var(--border-default)", paddingTop: 6 }}>
           ℹ {item.india_note}
         </div>
       )}
 
       {/* Duty Note */}
       {item.duty_note && (
-        <div style={{ color: "#475569", fontSize: 8, fontFamily: "var(--mono)" }}>
+        <div style={{ color: "var(--text-muted)", fontSize: 8, fontFamily: "var(--mono)" }}>
           Duty: {item.duty_note}
         </div>
       )}
@@ -146,6 +150,11 @@ export default function Commodities() {
     return () => clearInterval(interval);
   }, []);
 
+  const getCount = (cat) => {
+    if (cat === "ALL") return commodities.length;
+    return commodities.filter(c => CATEGORY_MAP[c.id] === cat).length;
+  };
+
   const filtered = commodities.filter(c =>
     activeCategory === "ALL" || CATEGORY_MAP[c.id] === activeCategory
   );
@@ -157,68 +166,52 @@ export default function Commodities() {
         {/* Header */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
-            <div style={{ color: "var(--text)", fontSize: 14, fontWeight: 700, fontFamily: "var(--mono)", letterSpacing: 1 }}>COMMODITY TRACKER</div>
-            <div style={{ color: "var(--muted)", fontSize: 9, fontFamily: "var(--mono)", marginTop: 2 }}>Prices in Indian Rupees · Source: CMX/ICE via yfinance + INR parity</div>
+            <div className="type-hero" style={{ fontSize: 20 }}>COMMODITY TRACKER</div>
+            <div className="type-micro" style={{ color: "var(--text-muted)", marginTop: 2 }}>Prices in Indian Rupees · Source: CMX/ICE via yfinance + INR parity</div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            {loading && <span style={{ color: "var(--muted)", fontSize: 9, fontFamily: "var(--mono)" }}>LOADING...</span>}
-            {lastUpdated && <span style={{ color: "var(--muted)", fontSize: 9, fontFamily: "var(--mono)" }}>Updated: {new Date(lastUpdated).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })} IST</span>}
+            {loading && <span className="type-micro" style={{ color: "var(--text-muted)" }}>LOADING...</span>}
+            {/* Standardise last updated to 24-hour format (Section 4.6) */}
+            {lastUpdated && (
+              <span className="type-micro" style={{ color: "var(--text-muted)" }}>
+                Updated: {new Date(lastUpdated).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: false })} IST
+              </span>
+            )}
             <Badge color="green">LIVE</Badge>
           </div>
         </div>
 
-        {/* Category Tabs */}
+        {/* Category Tabs (Section 4.6 Tabs count badges) */}
         <div style={{ display: "flex", gap: 8 }}>
           {CATEGORIES.map(cat => (
             <button
               key={cat}
               onClick={() => setActiveCategory(cat)}
               style={{
-                background: activeCategory === cat ? "var(--blue)" : "var(--card)",
-                border: `1px solid ${activeCategory === cat ? "var(--blue)" : "var(--border)"}`,
-                color: activeCategory === cat ? "#fff" : "var(--muted)",
-                padding: "5px 14px",
+                background: activeCategory === cat ? "var(--accent-teal)" : "var(--bg-card)",
+                border: `1px solid ${activeCategory === cat ? "var(--accent-teal)" : "var(--border-default)"}`,
+                color: activeCategory === cat ? "var(--bg-base)" : "var(--text-secondary)",
                 borderRadius: 4,
+                padding: "6px 12px",
                 fontSize: 10,
                 fontFamily: "var(--mono)",
                 fontWeight: 700,
                 cursor: "pointer",
-                letterSpacing: 0.5,
+                transition: "all 0.2s"
               }}
             >
-              {cat}
+              {cat === "ALL" ? `ALL (${getCount("ALL")})` : `${cat} (${getCount(cat)})`}
             </button>
           ))}
         </div>
 
-        {/* Cards Grid */}
-        {loading ? (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
-            {[...Array(6)].map((_, i) => (
-              <div key={i} style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 6, height: 160, opacity: 0.4, animation: "pulse 1.5s infinite" }} />
-            ))}
-          </div>
-        ) : filtered.length === 0 ? (
-          <div style={{ textAlign: "center", color: "var(--muted)", fontFamily: "var(--mono)", fontSize: 12, padding: "60px 0" }}>
-            NO COMMODITY DATA AVAILABLE — Backend syncing...
-          </div>
-        ) : (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
-            {filtered.map(item => (
-              <CommodityCard key={item.id} item={item} />
-            ))}
-          </div>
-        )}
-
-        {/* Footer */}
-        <div style={{ borderTop: "1px solid var(--border)", paddingTop: 10, display: "flex", justifyContent: "space-between" }}>
-          <span style={{ color: "#475569", fontSize: 9, fontFamily: "var(--mono)" }}>
-            Source: CMX/ICE/NYM via yfinance · INR parity via live USD/INR rate · NOT sourced from MCX
-          </span>
-          <span style={{ color: "#475569", fontSize: 9, fontFamily: "var(--mono)" }}>
-            15-min delay · For informational purposes only
-          </span>
+        {/* Grid */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14 }} className="animate-fade-in">
+          {filtered.map(item => (
+            <CommodityCard key={item.id} item={item} />
+          ))}
         </div>
+
       </div>
     </Layout>
   );
