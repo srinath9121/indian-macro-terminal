@@ -28,6 +28,16 @@ def _next_thursday_expiry():
         expiry = last_date.date()
     return expiry.strftime("%Y-%m-%d")
 
+def _count_trading_days(start_date, end_date):
+    """Count weekdays (Mon-Fri) between two dates, excluding start, including end."""
+    count = 0
+    current = start_date + timedelta(days=1)
+    while current <= end_date:
+        if current.weekday() < 5:  # Mon=0, Fri=4
+            count += 1
+        current += timedelta(days=1)
+    return count
+
 def get_upcoming_events(days=60):
     """
     Returns upcoming macro events relevant to India.
@@ -64,9 +74,11 @@ def get_upcoming_events(days=60):
         evt_date = datetime.strptime(evt["date"], "%Y-%m-%d").date()
         if now <= evt_date <= cutoff:
             days_until = (evt_date - now).days
+            trading_days = _count_trading_days(now, evt_date)
             upcoming.append({
                 **evt,
                 "days_until": days_until,
+                "trading_days": trading_days,
                 "urgency": "red" if days_until < 7 else "amber" if days_until < 14 else "green"
             })
 

@@ -101,7 +101,7 @@ export default function HomepageGlobe() {
       style={{
         width: "100%",
         height: "100%",
-        minHeight: 320,
+        minHeight: 180,
         background: "#060c18",
         border: "1px solid #1e2530",
         borderRadius: 12,

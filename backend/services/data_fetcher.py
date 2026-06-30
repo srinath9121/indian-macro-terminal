@@ -69,27 +69,28 @@ def fetch_indices() -> Dict:
 
     if not data:
         # Fallback to yfinance if NSE is down
-        return _fetch_indices_yfinance_fallback()
+        results = _fetch_indices_yfinance_fallback()
+    else:
+        results = {}
+        for item in data.get('data', []):
+            idx = item.get('index')
+            if idx == "NIFTY 50":
+                results["nifty"] = {"price": item['last'], "change": item['variation'], "pct_change": item['percentChange'], "direction": "up" if item['variation'] >= 0 else "down"}
+            elif idx == "NIFTY BANK":
+                results["bank_nifty"] = {"price": item['last'], "change": item['variation'], "pct_change": item['percentChange'], "direction": "up" if item['variation'] >= 0 else "down"}
+            elif idx == "INDIA VIX":
+                results["vix"] = {"price": item['last'], "change": item['variation'], "pct_change": item['percentChange'], "direction": "up" if item['variation'] >= 0 else "down"}
 
-    results = {}
-    for item in data.get('data', []):
-        idx = item.get('index')
-        if idx == "NIFTY 50":
-            results["nifty"] = {"price": item['last'], "change": item['variation'], "pct_change": item['percentChange'], "direction": "up" if item['variation'] >= 0 else "down"}
-        elif idx == "NIFTY BANK":
-            results["bank_nifty"] = {"price": item['last'], "change": item['variation'], "pct_change": item['percentChange'], "direction": "up" if item['variation'] >= 0 else "down"}
-        elif idx == "INDIA VIX":
-            results["vix"] = {"price": item['last'], "change": item['variation'], "pct_change": item['percentChange'], "direction": "up" if item['variation'] >= 0 else "down"}
-
-    # Sensex, USD, Brent are better from yfinance
-    yf_data = _fetch_indices_yfinance_fallback()
-    results["sensex"] = yf_data.get("sensex", mock["sensex"])
-    results["usd_inr"] = yf_data.get("usd_inr", mock["usd_inr"])
-    results["brent"] = yf_data.get("brent", mock["brent"])
+        # Sensex, USD, Brent are better from yfinance
+        yf_data = _fetch_indices_yfinance_fallback()
+        results["sensex"] = yf_data.get("sensex", mock["sensex"])
+        results["usd_inr"] = yf_data.get("usd_inr", mock["usd_inr"])
+        results["brent"] = yf_data.get("brent", mock["brent"])
 
     # Ensure all keys exist
     for k in mock:
-        if k not in results: results[k] = mock[k]
+        if k not in results or not results[k] or results[k].get("price", 0) == 0:
+            results[k] = mock[k]
     
     return results
 

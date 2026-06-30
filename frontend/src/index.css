@@ -1,24 +1,65 @@
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* ═══════════════════════════════════════════════════════
+   INDIA MACRO TERMINAL — Design System v2
+   Section 3: Tokens, Typography, Hierarchy
+   ═══════════════════════════════════════════════════════ */
+
 :root {
-  --bg: #070b12;
-  --bg-darker: #060a10;
-  --card: #0f1520;
-  --card-alt: #0d1219;
-  --nav: #0a0e14;
-  --border: #1e2530;
-  --green: #22c55e;
-  --red: #ef4444;
-  --yellow: #f59e0b;
-  --blue: #3b82f6;
-  --text: #f1f5f9;
-  --muted: #64748b;
-  --muted-bright: #94a3b8;
-  --mono: 'JetBrains Mono', 'Fira Code', monospace;
+  /* ── Colour Tokens (Section 3.1) ──────────────────── */
+  --bg-base:       #0B0F17;
+  --bg-card:       #111826;
+  --bg-card-hover: #161F2E;
+  --border-default:#1E2D3D;
+  --border-accent: #00D4AA;
+
+  --text-primary:  #F1F5F9;
+  --text-secondary:#CBD5E1;
+  --text-muted:    #64748B;
+  --text-micro:    #475569;
+
+  --accent-teal:   #00D4AA;
+  --accent-amber:  #F59E0B;
+  --accent-red:    #EF4444;
+  --accent-blue:   #7DD3FC;
+  --accent-purple: #A78BFA;
+
+  --up-glow:       rgba(0,212,170,0.08);
+  --down-glow:     rgba(239,68,68,0.08);
+
+  /* ── Backward-compatible aliases ─────────────────── */
+  /* Existing components use these names in inline styles */
+  --bg:          var(--bg-base);
+  --bg-darker:   #060a10;
+  --card:        var(--bg-card);
+  --card-alt:    #0d1219;
+  --nav:         #0a0e14;
+  --border:      var(--border-default);
+  --green:       var(--accent-teal);
+  --red:         var(--accent-red);
+  --yellow:      var(--accent-amber);
+  --blue:        var(--accent-blue);
+  --text:        var(--text-primary);
+  --muted:       var(--text-muted);
+  --muted-bright:var(--text-secondary);
+
+  /* ── Typography (Section 3.2) ────────────────────── */
+  --mono:  'JetBrains Mono', 'Fira Code', monospace;
+  --sans:  'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+
+  /* ── Spacing System (Section 3.3) — 4px base ─────── */
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-5:  20px;
+  --space-6:  24px;
+  --space-8:  32px;
+  --space-12: 48px;
 }
 
 * {
@@ -28,14 +69,14 @@
 html, body, #root {
   margin: 0;
   min-height: 100vh;
-  background: var(--bg);
-  color: var(--text);
+  background: var(--bg-base);
+  color: var(--text-primary);
   font-family: var(--mono);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Scrollbar styling */
+/* ── Scrollbar ──────────────────────────────────────── */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -44,28 +85,168 @@ html, body, #root {
   background: var(--bg-darker);
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--border);
+  background: var(--border-default);
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--muted);
+  background: var(--text-muted);
 }
 
 ::selection {
-  background: rgba(59, 130, 246, 0.2);
-  color: var(--blue);
+  background: rgba(0, 212, 170, 0.15);
+  color: var(--accent-teal);
 }
 
 .terminal-shadow {
-  box-shadow: 0 0 40px rgba(29, 78, 216, 0.05);
+  box-shadow: 0 0 40px rgba(0, 212, 170, 0.04);
 }
 
-/* Animations */
+/* ═══════════════════════════════════════════════════════
+   ANIMATIONS
+   ═══════════════════════════════════════════════════════ */
+
 @keyframes fade-in {
   from { opacity: 0; transform: translateY(4px); }
-  to { opacity: 1; transform: translateY(0); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 .animate-fade-in {
   animation: fade-in 0.3s ease-out forwards;
+}
+
+@keyframes _pulse {
+  0%, 100% { opacity: 0.35; }
+  50%      { opacity: 1; }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.4; }
+  50%      { opacity: 0.7; }
+}
+
+/* ═══════════════════════════════════════════════════════
+   TYPOGRAPHY SCALE (Section 3.2)
+   JetBrains Mono for numbers/data · Inter for labels/prose
+   ═══════════════════════════════════════════════════════ */
+
+/* Hero: The single most important number — risk score, Nifty price, commodity price */
+.type-hero {
+  font-family: var(--mono);
+  font-size: 36px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.5px;
+  line-height: 1;
+}
+
+/* Data: FII flows, FX rates, bond yields */
+.type-data {
+  font-family: var(--mono);
+  font-size: 22px;
+  font-weight: 500;
+  color: var(--text-primary);
+  line-height: 1.1;
+}
+
+/* Delta: Change percentages — +2.49%, -1.13%, +6bps */
+.type-delta {
+  font-family: var(--mono);
+  font-size: 16px;
+  font-weight: 400;
+}
+
+/* Label: Section headers, card titles — ALWAYS UPPERCASE */
+.type-label {
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+}
+
+/* Body: Alert descriptions, AI summary prose */
+.type-body {
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+/* Micro: Timestamps, source labels, duty notation */
+.type-micro {
+  font-family: var(--sans);
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--text-micro);
+}
+
+/* Signal: BULLISH / BEARISH / NEUTRAL / CRITICAL labels */
+.type-signal {
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+/* ── Legacy hierarchy classes (kept for compatibility) ── */
+
+.hero-value {
+  font-family: var(--mono);
+  font-size: 28px;
+  font-weight: 900;
+  color: var(--text-primary);
+  letter-spacing: -0.5px;
+  line-height: 1.1;
+}
+
+.hero-value-lg {
+  font-family: var(--mono);
+  font-size: 36px;
+  font-weight: 900;
+  color: var(--text-primary);
+  letter-spacing: -1px;
+  line-height: 1;
+}
+
+.supporting-value {
+  font-family: var(--mono);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.supporting-value-lg {
+  font-family: var(--mono);
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.reference-value {
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 400;
+  color: var(--text-muted);
+  letter-spacing: 0.5px;
+}
+
+.reference-label {
+  font-family: var(--sans);
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+}
+
+/* ── Directional colors ────────────────────────────── */
+.value-positive { color: var(--accent-teal); }
+.value-negative { color: var(--accent-red); }
+.value-neutral  { color: var(--accent-amber); }
+
+/* ── Card hover state ──────────────────────────────── */
+.card-hover:hover {
+  background: var(--bg-card-hover) !important;
+  transition: background 0.2s ease;
 }
