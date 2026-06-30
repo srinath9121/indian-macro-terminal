@@ -90,16 +90,17 @@ const MainGlobe = ({ gtiValue = 50, countryScores = {}, arcsData = [], onCountry
         pixelRatio: Math.min(window.devicePixelRatio, 2),
       }}
 
-      // Country polygons (risk-colored)
+      // Country polygons (risk-colored only on hover to keep satellite map clean)
       polygonsData={countries.features}
-      polygonAltitude={d => d === hoverD ? 0.04 : 0.01}
+      polygonAltitude={d => d === hoverD ? 0.03 : 0.005}
       polygonCapColor={d => {
         const score = getCountryScore(d, countryScores);
         const col = getRiskColor(score);
-        return d === hoverD ? col.replace(/0\.\d+\)/, '1)') : col;
+        // Show translucent color on hover, completely transparent otherwise
+        return d === hoverD ? col.replace(/0\.\d+\)/, '0.55)') : 'rgba(0, 0, 0, 0)';
       }}
-      polygonSideColor={() => 'rgba(0,0,0,0.5)'}
-      polygonStrokeColor={() => '#111827'}
+      polygonSideColor={() => 'rgba(0,0,0,0.3)'}
+      polygonStrokeColor={d => d === hoverD ? '#ffffff' : 'rgba(0, 0, 0, 0)'}
       polygonLabel={d => {
         const score = getCountryScore(d, countryScores);
         const name = d.properties?.ADMIN || d.properties?.NAME || 'Unknown';
