@@ -56,12 +56,32 @@ const MainGlobe = ({ gtiValue = 50, countryScores = {}, arcsData = [], onCountry
     return () => observer.disconnect();
   }, []);
 
-  // Load countries GeoJSON
+  // Load countries GeoJSON with automatic CDN fallback
   useEffect(() => {
-    fetch('/countries.json')
-      .then(r => r.json())
-      .then(setCountries)
-      .catch(err => console.error('Globe GeoJSON Error:', err));
+    const loadGeoJson = async () => {
+      try {
+        const res = await fetch('/countries.json');
+        const contentType = res.headers.get('content-type') || '';
+        if (res.ok && !contentType.includes('text/html')) {
+          const data = await res.json();
+          if (data && data.features && data.features.length > 0) {
+            setCountries(data);
+            return;
+          }
+        }
+        throw new Error('Local countries.json not valid');
+      } catch (err) {
+        console.warn('Local countries.json fallback to CDN...', err);
+        try {
+          const fallbackRes = await fetch('https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson');
+          const fallbackData = await fallbackRes.json();
+          setCountries(fallbackData);
+        } catch (cdnErr) {
+          console.error('All Globe GeoJSON loads failed:', cdnErr);
+        }
+      }
+    };
+    loadGeoJson();
   }, []);
 
   // Camera + auto-rotation setup centered on India
@@ -124,19 +144,20 @@ const MainGlobe = ({ gtiValue = 50, countryScores = {}, arcsData = [], onCountry
 
         // Country polygons
         polygonsData={countries.features}
-        polygonAltitude={d => d === hoverD ? 0.03 : 0.005}
+        polygonAltitude={d => d === hoverD ? 0.06 : 0.006}
         polygonCapColor={d => {
           const score = getCountryScore(d, countryScores);
           const col = getRiskColor(score);
-          return d === hoverD ? col.replace(/0\.\d+\)/, '0.55)') : 'rgba(0, 0, 0, 0)';
+          return d === hoverD ? col.replace(/0\.\d+\)/, '0.70)') : 'rgba(15, 23, 42, 0.05)';
         }}
-        polygonSideColor={() => 'rgba(0,0,0,0.3)'}
-        polygonStrokeColor={d => d === hoverD ? '#ffffff' : 'rgba(0, 0, 0, 0)'}
+        polygonSideColor={d => d === hoverD ? 'rgba(255, 255, 255, 0.4)' : 'rgba(0, 0, 0, 0.2)'}
+        polygonStrokeColor={d => d === hoverD ? '#38bdf8' : 'rgba(255, 255, 255, 0.12)'}
         polygonLabel={d => {
           const score = getCountryScore(d, countryScores);
-          const name = d.properties?.ADMIN || d.properties?.NAME || 'Unknown';
-          return `<div style="background:#0f172a;border:1px solid #334155;padding:6px 10px;border-radius:6px;font-family:monospace;font-size:11px;color:#f1f5f9">
-            <b>${name}</b><br/>Risk Score: <b style="color:${getRiskColor(score)}">${score}</b>
+          const name = d.properties?.ADMIN || d.properties?.name || d.properties?.NAME || 'Unknown';
+          return `<div style="background:rgba(15, 23, 42, 0.92);backdrop-filter:blur(8px);border:1px solid #38bdf8;padding:8px 12px;border-radius:6px;font-family:'Departure Mono',monospace;font-size:11px;color:#f8fafc;box-shadow:0 8px 24px rgba(0,0,0,0.5);">
+            <div style="font-weight:700;font-size:12px;margin-bottom:2px;">${name}</div>
+            <div style="color:#94a3b8;font-size:10px;">Risk Score: <b style="color:${getRiskColor(score)};font-size:12px;">${score}</b></div>
           </div>`;
         }}
         onPolygonHover={d => {
@@ -148,7 +169,8 @@ const MainGlobe = ({ gtiValue = 50, countryScores = {}, arcsData = [], onCountry
         }}
         onPolygonClick={d => {
           if (d?.properties && onCountryClick) {
-            onCountryClick(d.properties.ADMIN || d.properties.NAME || 'Unknown');
+            const name = d.properties.ADMIN || d.properties.name || d.properties.NAME || 'Unknown';
+            onCountryClick(name);
           }
         }}
 

@@ -1922,6 +1922,9 @@ if DIST_DIR.exists():
     async def serve_spa(full_path: str):
         if full_path.startswith("api/") or full_path.startswith("ws"):
             return {"error": "404"}
+        file_path = DIST_DIR / full_path
+        if full_path and file_path.exists() and file_path.is_file():
+            return FileResponse(file_path)
         return FileResponse(DIST_DIR / "index.html")
 else:
     @app.get("/")
