@@ -5,13 +5,13 @@ import React from "react";
  * Matches the exact technical look of the original monolith.
  */
 const COLORS = {
-  green:  { bg: "#052e16", text: "#22c55e" },
-  red:    { bg: "#2d0a0a", text: "#ef4444" },
-  yellow: { bg: "#2d1f0a", text: "#f59e0b" },
-  blue:   { bg: "#0a1f2d", text: "#38bdf8" },
-  bullish: { bg: "#052e16", text: "#22c55e" },
-  defensive: { bg: "#2d0a0a", text: "#ef4444" },
-  neutral: { bg: "#2d1f0a", text: "#f59e0b" },
+  green:  { bg: "#DCFCE7", text: "#15803D" },
+  red:    { bg: "#FEE2E2", text: "#B91C1C" },
+  yellow: { bg: "#FEF3C7", text: "#B45309" },
+  blue:   { bg: "#E0F2FE", text: "#0369A1" },
+  bullish: { bg: "#DCFCE7", text: "#15803D" },
+  defensive: { bg: "#FEE2E2", text: "#B91C1C" },
+  neutral: { bg: "#FEF3C7", text: "#B45309" },
 };
 
 export default function Badge({ children, tone = "green", color }) {

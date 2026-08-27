@@ -4,7 +4,6 @@ import Layout from "../components/layout/Layout";
 import Badge from "../components/ui/Badge";
 import Sparkline from "../components/charts/Sparkline";
 import Globe from "../components/globe/Globe";
-import HomepageGlobe from "../components/globe/HomepageGlobe";
 import ErrorBoundary from "../components/ui/ErrorBoundary";
 import { useTerminalStore } from "../store/useTerminalStore";
 import ParticleBackground from '../components/ParticleBackground';
@@ -149,34 +148,25 @@ export default function Pulse() {
       <ParticleBackground />
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }} className="animate-fade-in">
 
-        {/* Row 1: Scoreboard + Globe */}
-        <div style={{ display: "flex", gap: 14 }}>
-          <div style={{ flex: "0 0 55%", display: "flex", flexDirection: "column", gap: 10 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <span className="type-label">INDIA MACRO SCOREBOARD</span>
-              <Badge color="green">LIVE</Badge>
-            </div>
-            <div style={{ display: "flex", gap: 10 }}>
-              <ScoreCard title="GROWTH" label={gdp.status || "Strong"} labelColor="var(--accent-teal)" value={gdp.value ? `${gdp.value}% GDP Forecast` : "6.8% GDP Forecast"} sparkData={[3,4,5,4,6,5,7]} sparkColor="var(--accent-teal)" />
-              <ScoreCard title="INFLATION" label={inflation.status || "Rising"} labelColor="var(--accent-red)" value={inflation.value ? `${inflation.value}% CPI YoY` : "5.1% CPI YoY"} sparkData={[4,5,5,6,6,7,7]} sparkColor="var(--accent-red)" />
-              <ScoreCard title="LIQUIDITY" label={liquidity.status || "Tightening"} labelColor="var(--accent-amber)" value="System Liquidity" sparkData={[6,5,5,4,4,3,3]} sparkColor="var(--accent-amber)" />
-              <ScoreCard 
-                title="FII FLOW" 
-                label={fiiNetDisplay} 
-                labelColor={fiiTrend === "outflow" ? "var(--accent-red)" : fiiTrend === "unavailable" ? "var(--text-muted)" : "var(--accent-teal)"} 
-                value={fiiTrend === "outflow" ? "NET OUTFLOW" : fiiTrend === "unavailable" ? "DATA UNAVAILABLE" : "NET INFLOW"} 
-                sparkData={fiiTrend === "outflow" ? [5,4,4,3,4,3,2] : [2,3,4,3,5,4,6]} 
-                sparkColor={fiiTrend === "outflow" ? "var(--accent-red)" : fiiTrend === "unavailable" ? "var(--text-muted)" : "var(--accent-teal)"} 
-              />
-              <MarketBiasCard state={signalState} confidence={signalConf} />
-            </div>
+        {/* Row 1: Scoreboard */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span className="type-label">INDIA MACRO SCOREBOARD</span>
+            <Badge color="green">LIVE</Badge>
           </div>
-
-          {/* Globe Section */}
-          <div style={{ flex: 1 }}>
-            <ErrorBoundary>
-              <HomepageGlobe />
-            </ErrorBoundary>
+          <div style={{ display: "flex", gap: 10 }}>
+            <ScoreCard title="GROWTH" label={gdp.status || "Strong"} labelColor="var(--accent-teal)" value={gdp.value ? `${gdp.value}% GDP Forecast` : "6.8% GDP Forecast"} sparkData={[3,4,5,4,6,5,7]} sparkColor="var(--accent-teal)" />
+            <ScoreCard title="INFLATION" label={inflation.status || "Rising"} labelColor="var(--accent-red)" value={inflation.value ? `${inflation.value}% CPI YoY` : "5.1% CPI YoY"} sparkData={[4,5,5,6,6,7,7]} sparkColor="var(--accent-red)" />
+            <ScoreCard title="LIQUIDITY" label={liquidity.status || "Tightening"} labelColor="var(--accent-amber)" value="System Liquidity" sparkData={[6,5,5,4,4,3,3]} sparkColor="var(--accent-amber)" />
+            <ScoreCard 
+              title="FII FLOW" 
+              label={fiiNetDisplay} 
+              labelColor={fiiTrend === "outflow" ? "var(--accent-red)" : fiiTrend === "unavailable" ? "var(--text-muted)" : "var(--accent-teal)"} 
+              value={fiiTrend === "outflow" ? "NET OUTFLOW" : fiiTrend === "unavailable" ? "DATA UNAVAILABLE" : "NET INFLOW"} 
+              sparkData={fiiTrend === "outflow" ? [5,4,4,3,4,3,2] : [2,3,4,3,5,4,6]} 
+              sparkColor={fiiTrend === "outflow" ? "var(--accent-red)" : fiiTrend === "unavailable" ? "var(--text-muted)" : "var(--accent-teal)"} 
+            />
+            <MarketBiasCard state={signalState} confidence={signalConf} />
           </div>
         </div>
 

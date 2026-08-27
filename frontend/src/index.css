@@ -1,3 +1,12 @@
+/* ── Departure Mono – pixel-perfect terminal font for numbers & tickers ── */
+@font-face {
+  font-family: 'Departure Mono';
+  src: url('/fonts/DepartureMono-Regular.woff2') format('woff2');
+  font-weight: 400 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap');
 
 @tailwind base;
@@ -10,34 +19,35 @@
    ═══════════════════════════════════════════════════════ */
 
 :root {
-  /* ── Colour Tokens (Section 3.1) ──────────────────── */
-  --bg-base:       #0B0F17;
-  --bg-card:       #111826;
-  --bg-card-hover: #161F2E;
-  --border-default:#1E2D3D;
-  --border-accent: #00D4AA;
+  /* ── Colour Tokens (Section 3.1) - Light Glassmorphism ── */
+  --bg-base:       #F1F5F9; /* Very light cool gray */
+  --bg-card:       rgba(255, 255, 255, 0.6);
+  --bg-card-hover: rgba(255, 255, 255, 0.85);
+  --border-default:rgba(255, 255, 255, 0.5);
+  --border-accent: #0284C7;
 
-  --text-primary:  #F1F5F9;
-  --text-secondary:#CBD5E1;
+  --text-primary:  #0F172A;
+  --text-secondary:#334155;
   --text-muted:    #64748B;
-  --text-micro:    #475569;
+  --text-micro:    #94A3B8;
 
-  --accent-teal:   #00D4AA;
-  --accent-amber:  #F59E0B;
-  --accent-red:    #EF4444;
-  --accent-blue:   #7DD3FC;
-  --accent-purple: #A78BFA;
+  --accent-teal:   #059669; /* Darker for light background */
+  --accent-amber:  #D97706; /* Darker amber */
+  --accent-red:    #DC2626; /* Darker red */
+  --accent-blue:   #0284C7; /* Darker blue */
+  --accent-purple: #7C3AED;
 
-  --up-glow:       rgba(0,212,170,0.08);
-  --down-glow:     rgba(239,68,68,0.08);
+  --up-glow:       rgba(5, 150, 105, 0.1);
+  --down-glow:     rgba(220, 38, 38, 0.1);
+  --glass-blur:    blur(12px);
 
   /* ── Backward-compatible aliases ─────────────────── */
   /* Existing components use these names in inline styles */
   --bg:          var(--bg-base);
-  --bg-darker:   #060a10;
+  --bg-darker:   #E2E8F0;
   --card:        var(--bg-card);
-  --card-alt:    #0d1219;
-  --nav:         #0a0e14;
+  --card-alt:    rgba(255, 255, 255, 0.4);
+  --nav:         rgba(248, 250, 252, 0.7);
   --border:      var(--border-default);
   --green:       var(--accent-teal);
   --red:         var(--accent-red);
@@ -48,7 +58,7 @@
   --muted-bright:var(--text-secondary);
 
   /* ── Typography (Section 3.2) ────────────────────── */
-  --mono:  'JetBrains Mono', 'Fira Code', monospace;
+  --mono: 'Departure Mono', 'JetBrains Mono', 'Fira Code', monospace;
   --sans:  'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 
   /* ── Spacing System (Section 3.3) — 4px base ─────── */
@@ -62,6 +72,59 @@
   --space-12: 48px;
 }
 
+/* ═══════════════════════════════════════════════════════
+   DARK TERMINAL THEME (Obsidian & Electric Cyan)
+   ═══════════════════════════════════════════════════════ */
+[data-theme="dark"] {
+  --bg-base:       #080C14;
+  --bg-card:       rgba(15, 23, 38, 0.75);
+  --bg-card-hover: rgba(22, 33, 54, 0.9);
+  --border-default:rgba(255, 255, 255, 0.08);
+  --border-accent: #00E5FF;
+
+  --text-primary:  #F8FAFC;
+  --text-secondary:#CBD5E1;
+  --text-muted:    #64748B;
+  --text-micro:    #475569;
+
+  --accent-teal:   #00E5FF; /* Electric Cyan */
+  --accent-amber:  #F59E0B;
+  --accent-red:    #EF4444;
+  --accent-blue:   #38BDF8;
+  --accent-purple: #A78BFA;
+
+  --up-glow:       rgba(0, 229, 255, 0.15);
+  --down-glow:     rgba(239, 68, 68, 0.15);
+  --glass-blur:    blur(12px);
+
+  --bg:          var(--bg-base);
+  --bg-darker:   #05070B;
+  --card:        var(--bg-card);
+  --card-alt:    rgba(13, 19, 32, 0.6);
+  --nav:         rgba(8, 12, 20, 0.85);
+  --border:      var(--border-default);
+  --green:       var(--accent-teal);
+  --red:         var(--accent-red);
+  --yellow:      var(--accent-amber);
+  --blue:        var(--accent-blue);
+  --text:        var(--text-primary);
+  --muted:       var(--text-muted);
+  --muted-bright:var(--text-secondary);
+}
+
+[data-theme="dark"] body {
+  background: linear-gradient(135deg, #07090E 0%, #0B111E 50%, #080C14 100%) !important;
+  background-attachment: fixed !important;
+}
+
+[data-theme="dark"] .card-hover {
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+}
+
+[data-theme="dark"] .card-hover:hover {
+  box-shadow: 0 10px 30px -3px rgba(0, 229, 255, 0.1), 0 0 0 1px rgba(0, 229, 255, 0.2) inset;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -69,7 +132,8 @@
 html, body, #root {
   margin: 0;
   min-height: 100vh;
-  background: var(--bg-base);
+  background: linear-gradient(135deg, #F8FAFC 0%, #EFF6FF 50%, #F1F5F9 100%);
+  background-attachment: fixed;
   color: var(--text-primary);
   font-family: var(--mono);
   -webkit-font-smoothing: antialiased;
@@ -93,12 +157,12 @@ html, body, #root {
 }
 
 ::selection {
-  background: rgba(0, 212, 170, 0.15);
-  color: var(--accent-teal);
+  background: rgba(2, 132, 199, 0.15);
+  color: var(--accent-blue);
 }
 
 .terminal-shadow {
-  box-shadow: 0 0 40px rgba(0, 212, 170, 0.04);
+  box-shadow: 0 10px 30px rgba(2, 132, 199, 0.06);
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -245,8 +309,25 @@ html, body, #root {
 .value-negative { color: var(--accent-red); }
 .value-neutral  { color: var(--accent-amber); }
 
-/* ── Card hover state ──────────────────────────────── */
+/* ── Card & Glass Utilities ────────────────────────── */
+.card-hover {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 4px 15px -2px rgba(15, 23, 42, 0.04), 0 0 0 1px rgba(255, 255, 255, 0.6) inset;
+  transition: all 0.2s ease;
+}
+
 .card-hover:hover {
   background: var(--bg-card-hover) !important;
-  transition: background 0.2s ease;
+  box-shadow: 0 10px 25px -3px rgba(15, 23, 42, 0.08), 0 0 0 1px rgba(255, 255, 255, 0.8) inset;
+  transform: translateY(-2px);
+}
+
+.glass-panel {
+  background: var(--bg-card);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border-default);
+  box-shadow: 0 4px 15px -2px rgba(15, 23, 42, 0.04), 0 0 0 1px rgba(255, 255, 255, 0.6) inset;
+  border-radius: 12px;
 }

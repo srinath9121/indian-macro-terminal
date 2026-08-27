@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { NavLink, useLocation } from "react-router-dom";
+import { useTheme } from "../../hooks/useTheme";
 
 const LINKS = [
   { path: "/",            label: "HOME" },
@@ -31,21 +32,24 @@ function LiveClock() {
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
   }, []);
-  return <span style={{ color: "#94a3b8", fontSize: 11, fontFamily: "var(--mono)" }}>{time}</span>;
+  return <span style={{ color: "var(--text-muted)", fontSize: 11, fontFamily: "var(--mono)" }}>{time}</span>;
 }
 
 export default function Navbar() {
   const location = useLocation();
+  const { theme, toggleTheme, isDark } = useTheme();
 
   return (
     <nav
       style={{
         background: "var(--nav)",
+        backdropFilter: "blur(12px)",
+        WebkitBackdropFilter: "blur(12px)",
         borderBottom: "1px solid var(--border)",
         display: "flex",
         alignItems: "center",
         padding: "0 20px",
-        height: 48,
+        height: 52,
         position: "sticky",
         top: 0,
         zIndex: 100,
@@ -58,22 +62,23 @@ export default function Navbar() {
             width: 32,
             height: 32,
             borderRadius: 8,
-            background: "linear-gradient(135deg, #1d4ed8, #7c3aed)",
+            background: "linear-gradient(135deg, #0284C7, #7C3AED)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             fontSize: 14,
             fontWeight: 900,
             color: "#fff",
+            boxShadow: "0 4px 12px rgba(2, 132, 199, 0.25)",
           }}
         >
           ⬡
         </div>
         <div>
-          <div style={{ color: "#f1f5f9", fontSize: 13, fontWeight: 700, letterSpacing: 1, fontFamily: "var(--mono)" }}>
+          <div style={{ color: "var(--text-primary)", fontSize: 13, fontWeight: 700, letterSpacing: 1, fontFamily: "var(--mono)" }}>
             INDIA MACRO TERMINAL
           </div>
-          <div style={{ color: "#64748b", fontSize: 9, letterSpacing: 0.5 }}>
+          <div style={{ color: "var(--text-muted)", fontSize: 9, letterSpacing: 0.5 }}>
             Real-time Intelligence. Smarter Decisions.
           </div>
         </div>
@@ -89,15 +94,15 @@ export default function Navbar() {
             style={{
               background: "none",
               textDecoration: "none",
-              color: isActive ? "#f1f5f9" : "#64748b",
+              color: isActive ? "var(--text-primary)" : "var(--text-muted)",
               fontSize: 11,
-              fontWeight: 600,
+              fontWeight: isActive ? 700 : 500,
               letterSpacing: 0.8,
               padding: "0 14px",
-              height: 48,
+              height: 52,
               display: "flex",
               alignItems: "center",
-              borderBottom: isActive ? "2px solid #3b82f6" : "2px solid transparent",
+              borderBottom: isActive ? "2px solid var(--accent-blue)" : "2px solid transparent",
               transition: "all 0.15s",
               fontFamily: "var(--mono)",
             }}
@@ -108,7 +113,8 @@ export default function Navbar() {
       })}
 
       {/* Right side */}
-      <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 16 }}>
+      <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 14 }}>
+        {/* Live Indicator */}
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <span
             style={{
@@ -122,9 +128,38 @@ export default function Navbar() {
           />
           <span style={{ color: "#22c55e", fontSize: 11, fontWeight: 700, fontFamily: "var(--mono)" }}>LIVE</span>
         </div>
+
         <LiveClock />
-        <span style={{ color: "#64748b", fontSize: 16 }}>🔍</span>
-        <span style={{ color: "#64748b", fontSize: 16, position: "relative" }}>
+
+        {/* ── Theme Switcher ── */}
+        <button
+          onClick={toggleTheme}
+          title={`Switch to ${isDark ? "Light Glass" : "Dark Terminal"} mode`}
+          style={{
+            background: "var(--bg-card)",
+            border: "1px solid var(--border-default)",
+            borderRadius: 8,
+            padding: "4px 10px",
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            cursor: "pointer",
+            color: "var(--text-primary)",
+            fontFamily: "var(--mono)",
+            fontSize: 11,
+            fontWeight: 700,
+            transition: "all 0.2s ease",
+          }}
+          className="card-hover"
+        >
+          <span style={{ fontSize: 12 }}>{isDark ? "🌙" : "☀️"}</span>
+          <span style={{ fontSize: 9, letterSpacing: 0.5, color: "var(--text-muted)" }}>
+            {isDark ? "DARK" : "LIGHT"}
+          </span>
+        </button>
+
+        <span style={{ color: "var(--text-muted)", fontSize: 15, cursor: "pointer" }}>🔍</span>
+        <span style={{ color: "var(--text-muted)", fontSize: 15, position: "relative", cursor: "pointer" }}>
           🔔
           <span
             style={{
@@ -146,7 +181,7 @@ export default function Navbar() {
             3
           </span>
         </span>
-        <span style={{ color: "#64748b", fontSize: 16 }}>👤</span>
+        <span style={{ color: "var(--text-muted)", fontSize: 15, cursor: "pointer" }}>👤</span>
       </div>
     </nav>
   );

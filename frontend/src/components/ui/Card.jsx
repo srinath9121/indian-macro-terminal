@@ -6,10 +6,10 @@ import React from "react";
 export default function Card({ children, className = "", style = {}, alt = false }) {
   return (
     <div
-      className={`rounded-lg border border-[var(--border)] ${className}`}
+      className={`rounded-xl border border-[var(--border-default)] backdrop-blur-md shadow-sm transition-all duration-200 ${className}`}
       style={{
-        background: alt ? "var(--card-alt, #0d1219)" : "var(--card, #0f1520)",
-        padding: "12px 14px",
+        background: alt ? "var(--card-alt)" : "var(--card)",
+        padding: "16px",
         ...style,
       }}
     >

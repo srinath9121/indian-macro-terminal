@@ -32,12 +32,31 @@ const getRiskColor = (score) => {
 const isMobile = () => (typeof navigator !== 'undefined') && navigator.maxTouchPoints > 0;
 
 const MainGlobe = ({ gtiValue = 50, countryScores = {}, arcsData = [], onCountryClick }) => {
+  const containerRef = useRef(null);
   const globeEl = useRef();
+  const [dimensions, setDimensions] = useState({ width: 700, height: 500 });
   const [countries, setCountries] = useState({ features: [] });
   const [hoverD, setHoverD] = useState(null);
   const isHovering = useRef(false);
 
-  // Load countries GeoJSON from bundled public folder (not CDN)
+  // ResizeObserver to adapt smoothly to desktop layout
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const updateDimensions = () => {
+      if (containerRef.current) {
+        const { clientWidth, clientHeight } = containerRef.current;
+        if (clientWidth > 0 && clientHeight > 0) {
+          setDimensions({ width: clientWidth, height: clientHeight });
+        }
+      }
+    };
+    updateDimensions();
+    const observer = new ResizeObserver(updateDimensions);
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  // Load countries GeoJSON
   useEffect(() => {
     fetch('/countries.json')
       .then(r => r.json())
@@ -45,21 +64,22 @@ const MainGlobe = ({ gtiValue = 50, countryScores = {}, arcsData = [], onCountry
       .catch(err => console.error('Globe GeoJSON Error:', err));
   }, []);
 
-  // Camera + auto-rotation setup
+  // Camera + auto-rotation setup centered on India
   useEffect(() => {
     if (!globeEl.current) return;
-    globeEl.current.pointOfView({ lat: 20, lng: 70, altitude: 2.4 }, 2500);
+    globeEl.current.pointOfView({ lat: 22, lng: 78, altitude: 2.1 }, 1200);
     const controls = globeEl.current.controls();
-    controls.autoRotate = true;
-    controls.autoRotateSpeed = 0.4;   // ~0.75 rpm
-    controls.enableDamping = true;
-    controls.dampingFactor = 0.08;
+    if (controls) {
+      controls.autoRotate = true;
+      controls.autoRotateSpeed = 0.4;
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.08;
+    }
 
-    // Pause auto-rotation while user drags
     const canvas = globeEl.current.renderer()?.domElement;
     if (canvas) {
-      const pause = () => { controls.autoRotate = false; };
-      const resume = () => { if (!isHovering.current) controls.autoRotate = true; };
+      const pause = () => { if (controls) controls.autoRotate = false; };
+      const resume = () => { if (controls && !isHovering.current) controls.autoRotate = true; };
       canvas.addEventListener('mousedown', pause);
       canvas.addEventListener('mouseup', resume);
       canvas.addEventListener('touchstart', pause, { passive: true });
@@ -74,66 +94,78 @@ const MainGlobe = ({ gtiValue = 50, countryScores = {}, arcsData = [], onCountry
   }, []);
 
   return (
-    <Globe
-      ref={globeEl}
-      backgroundColor="#00000000"
-      showAtmosphere={true}
-      atmosphereColor="#1d4ed8"
-      atmosphereAltitude={0.18}
-      // Use bundled Earth texture to avoid CDN latency on Render Singapore
-      globeImageUrl="/assets/earth_2048.jpg"
-      bumpImageUrl="/assets/earth_bump.jpg"
-      animateIn={true}
-      rendererConfig={{
-        antialias: !isMobile(),
-        powerPreference: 'high-performance',
-        pixelRatio: Math.min(window.devicePixelRatio, 2),
+    <div
+      ref={containerRef}
+      style={{
+        width: '100%',
+        height: '100%',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        position: 'relative',
       }}
+    >
+      <Globe
+        ref={globeEl}
+        width={dimensions.width}
+        height={dimensions.height}
+        backgroundColor="#00000000"
+        showAtmosphere={true}
+        atmosphereColor="#0284c7"
+        atmosphereAltitude={0.2}
+        globeImageUrl="/assets/earth_2048.jpg"
+        bumpImageUrl="/assets/earth_bump.jpg"
+        animateIn={true}
+        rendererConfig={{
+          antialias: !isMobile(),
+          powerPreference: 'high-performance',
+          pixelRatio: Math.min(window.devicePixelRatio, 2),
+        }}
 
-      // Country polygons (risk-colored only on hover to keep satellite map clean)
-      polygonsData={countries.features}
-      polygonAltitude={d => d === hoverD ? 0.03 : 0.005}
-      polygonCapColor={d => {
-        const score = getCountryScore(d, countryScores);
-        const col = getRiskColor(score);
-        // Show translucent color on hover, completely transparent otherwise
-        return d === hoverD ? col.replace(/0\.\d+\)/, '0.55)') : 'rgba(0, 0, 0, 0)';
-      }}
-      polygonSideColor={() => 'rgba(0,0,0,0.3)'}
-      polygonStrokeColor={d => d === hoverD ? '#ffffff' : 'rgba(0, 0, 0, 0)'}
-      polygonLabel={d => {
-        const score = getCountryScore(d, countryScores);
-        const name = d.properties?.ADMIN || d.properties?.NAME || 'Unknown';
-        return `<div style="background:#0f172a;border:1px solid #334155;padding:6px 10px;border-radius:6px;font-family:monospace;font-size:11px;color:#f1f5f9">
-          <b>${name}</b><br/>Risk Score: <b style="color:${getRiskColor(score)}">${score}</b>
-        </div>`;
-      }}
-      onPolygonHover={d => {
-        setHoverD(d);
-        isHovering.current = !!d;
-        if (globeEl.current) {
-          globeEl.current.controls().autoRotate = !d;
-        }
-      }}
-      onPolygonClick={d => {
-        if (d?.properties && onCountryClick) {
-          onCountryClick(d.properties.ADMIN || d.properties.NAME || 'Unknown');
-        }
-      }}
+        // Country polygons
+        polygonsData={countries.features}
+        polygonAltitude={d => d === hoverD ? 0.03 : 0.005}
+        polygonCapColor={d => {
+          const score = getCountryScore(d, countryScores);
+          const col = getRiskColor(score);
+          return d === hoverD ? col.replace(/0\.\d+\)/, '0.55)') : 'rgba(0, 0, 0, 0)';
+        }}
+        polygonSideColor={() => 'rgba(0,0,0,0.3)'}
+        polygonStrokeColor={d => d === hoverD ? '#ffffff' : 'rgba(0, 0, 0, 0)'}
+        polygonLabel={d => {
+          const score = getCountryScore(d, countryScores);
+          const name = d.properties?.ADMIN || d.properties?.NAME || 'Unknown';
+          return `<div style="background:#0f172a;border:1px solid #334155;padding:6px 10px;border-radius:6px;font-family:monospace;font-size:11px;color:#f1f5f9">
+            <b>${name}</b><br/>Risk Score: <b style="color:${getRiskColor(score)}">${score}</b>
+          </div>`;
+        }}
+        onPolygonHover={d => {
+          setHoverD(d);
+          isHovering.current = !!d;
+          if (globeEl.current) {
+            globeEl.current.controls().autoRotate = !d;
+          }
+        }}
+        onPolygonClick={d => {
+          if (d?.properties && onCountryClick) {
+            onCountryClick(d.properties.ADMIN || d.properties.NAME || 'Unknown');
+          }
+        }}
 
-      // Animated trade/flow arcs
-      arcsData={arcsData}
-      arcStartLat={d => d.startLat}
-      arcStartLng={d => d.startLng}
-      arcEndLat={d => d.endLat}
-      arcEndLng={d => d.endLng}
-      arcColor={d => d.color}
-      arcDashLength={d => d.dashLength || 0.4}
-      arcDashGap={d => d.dashGap || 0.2}
-      arcDashAnimateTime={d => d.speed || 1500}
-      arcAltitude={d => d.altitude || 0.3}
-      arcStroke={d => d.thickness || 1.5}
-    />
+        // Trade & geopolitical flow arcs
+        arcsData={arcsData}
+        arcStartLat={d => d.startLat}
+        arcStartLng={d => d.startLng}
+        arcEndLat={d => d.endLat}
+        arcEndLng={d => d.endLng}
+        arcColor={d => d.color}
+        arcDashLength={d => d.dashLength || 0.4}
+        arcDashGap={d => d.dashGap || 0.2}
+        arcDashAnimateTime={d => d.speed || 1500}
+        arcAltitude={d => d.altitude || 0.3}
+        arcStroke={d => d.thickness || 1.5}
+      />
+    </div>
   );
 };
 
