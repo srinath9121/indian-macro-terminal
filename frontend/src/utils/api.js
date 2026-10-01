@@ -1,17 +1,13 @@
 /**
- * Standardized API fetch utility for the India Macro Terminal.
- * Handles common networking errors and returns safe defaults.
+ * utils/api.js — thin re-export shim.
+ *
+ * The canonical API utility lives in services/api.js (fetchApi).
+ * This file provides the `safeFetch` alias that older components
+ * reference, wired to the same underlying implementation.
+ *
+ * Do NOT add new logic here — add it to services/api.js instead.
  */
-export async function safeFetch(url, options = {}, defaultValue = null) {
-  try {
-    const response = await fetch(url, options);
-    if (!response.ok) {
-      console.warn(`API Error [${response.status}] at ${url}`);
-      return defaultValue;
-    }
-    return await response.json();
-  } catch (error) {
-    console.error(`NETWORK ERROR at ${url}:`, error);
-    return defaultValue;
-  }
-}
+export { fetchApi as safeFetch } from "../services/api";
+
+/** Convenience default export for legacy default-import usage */
+export { fetchApi as default } from "../services/api";

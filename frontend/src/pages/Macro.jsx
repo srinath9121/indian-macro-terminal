@@ -28,13 +28,31 @@ const FX_PAIRS = [
   { pair: "JPY / INR (100)", value: "54.18", chg: "-0.45%", up: true, rangePos: 25, low52: "53.20", high52: "58.90" },
 ];
 
-const CALENDAR = [
-  { date: "JUL 14", name: "CPI Inflation Release", days: "15d left", dot: "var(--accent-teal)" },
-  { date: "JUL 29", name: "US FOMC Rate Decision", days: "30d left", dot: "var(--accent-amber)" },
-  { date: "JUL 30", name: "Nifty Monthly Expiry", days: "31d left", dot: "var(--accent-blue)" },
-  { date: "AUG 06", name: "RBI MPC Policy Decision", days: "38d left", dot: "var(--accent-purple)" },
-  { date: "AUG 13", name: "WPI & IIP Print", days: "45d left", dot: "var(--text-muted)" },
-];
+/** Compute upcoming macro events with live days-remaining from today (IST) */
+function buildCalendar() {
+  const today = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
+  const MONTHS = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
+  const year = today.getFullYear();
+
+  // Fixed recurring anchor dates (month is 0-indexed)
+  const EVENTS = [
+    { month: 1,  day: 12, name: "CPI Inflation Release",    dot: "var(--accent-teal)"   },
+    { month: 3,  day: 19, name: "US FOMC Rate Decision",     dot: "var(--accent-amber)"  },
+    { month: 9,  day: 9,  name: "RBI MPC Policy Decision",   dot: "var(--accent-purple)" },
+    { month: 9,  day: 30, name: "Nifty Monthly Expiry",      dot: "var(--accent-blue)"   },
+    { month: 10, day: 12, name: "WPI & IIP Print",           dot: "var(--text-muted)"    },
+    { month: 11, day: 5,  name: "RBI MPC December Decision", dot: "var(--accent-purple)" },
+  ];
+
+  return EVENTS.map(ev => {
+    let d = new Date(year, ev.month, ev.day);
+    // If the date already passed this year, push to next year
+    if (d < today) d = new Date(year + 1, ev.month, ev.day);
+    const diffDays = Math.ceil((d - today) / 86400000);
+    const label = `${MONTHS[d.getMonth()]} ${String(d.getDate()).padStart(2, '0')}`;
+    return { date: label, name: ev.name, days: `${diffDays}d left`, dot: ev.dot };
+  }).sort((a, b) => parseInt(a.days) - parseInt(b.days));
+}
 
 const MACRO_DRIVERS = [
   { label: "BRENT CRUDE OIL", value: "$85.12", chg: "-0.53%", up: true, impact: "FAVORABLE", tone: "green" },
@@ -45,6 +63,7 @@ const MACRO_DRIVERS = [
 
 export default function Macro() {
   const { macroData } = useTerminalStore();
+  const CALENDAR = buildCalendar();
 
   return (
     <Layout>

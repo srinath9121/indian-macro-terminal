@@ -1,17 +1,37 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import Layout from "../components/layout/Layout";
 import Card from "../components/ui/Card";
 import Section from "../components/ui/Section";
 import Badge from "../components/ui/Badge";
 import Sparkline from "../components/charts/Sparkline";
+import { useTerminalStore } from "../store/useTerminalStore";
 
-const HOME_KPIS = [
-  { name: "NIFTY 50", value: "24,117.65", change: "+181.95 (+0.76%)", up: true, tag: "UP", tone: "green", spark: [23800, 23920, 23890, 24050, 24117.65], timeframe: "Intraday" },
-  { name: "SENSEX", value: "77,496.36", change: "+609.45 (+0.79%)", up: true, tag: "UP", tone: "green", spark: [76500, 76900, 76800, 77200, 77496.36], timeframe: "Intraday" },
-  { name: "BANKNIFTY", value: "55,403.60", change: "+3.25 (+0.01%)", up: true, tag: "FLAT", tone: "yellow", spark: [55200, 55350, 55100, 55390, 55403.60], timeframe: "Intraday" },
-  { name: "INDIA VIX", value: "14.20", change: "-0.40 (-2.74%)", up: false, isVix: true, tag: "COOLING", tone: "green", spark: [15.2, 14.9, 14.6, 14.4, 14.2], timeframe: "Low Vol" },
-  { name: "MACRO CONFIDENCE", value: "52 / 100", change: "Neutral Bias", up: undefined, tag: "NEUTRAL", tone: "yellow", spark: [54, 53, 55, 51, 52], timeframe: "Grade B" },
+// Static seed data — overridden by live store values when available
+const SEED_KPIS = [
+  { key: "nifty",      name: "NIFTY 50",         isVix: false, spark: [23800, 23920, 23890, 24050, 24117.65], timeframe: "Intraday"  },
+  { key: "sensex",     name: "SENSEX",            isVix: false, spark: [76500, 76900, 76800, 77200, 77496.36], timeframe: "Intraday"  },
+  { key: "bank_nifty", name: "BANKNIFTY",         isVix: false, spark: [55200, 55350, 55100, 55390, 55403.60], timeframe: "Intraday"  },
+  { key: "vix",        name: "INDIA VIX",         isVix: true,  spark: [15.2, 14.9, 14.6, 14.4, 14.2],        timeframe: "Volatility" },
 ];
+
+/** Build display-ready KPI from raw market item */
+function buildKpi(seed, item, irsScore) {
+  if (seed.key === "vix" && irsScore !== undefined) {
+    // Use IRS score instead of VIX for the 5th card
+  }
+  if (!item) return null;
+  const pct  = item.pct_change ?? 0;
+  const chg  = item.change ?? 0;
+  const up   = item.direction === "up";
+  const tag  = seed.isVix ? (up ? "RISING" : "COOLING") : (Math.abs(pct) < 0.1 ? "FLAT" : up ? "UP" : "DOWN");
+  const tone = seed.isVix ? (!up ? "green" : "red") : (pct >= 0 ? "green" : pct > -0.5 ? "yellow" : "red");
+  return {
+    ...seed,
+    value: item.price?.toLocaleString("en-IN", { maximumFractionDigits: 2 }) ?? "—",
+    change: `${chg >= 0 ? "+" : ""}${chg.toFixed(2)} (${pct >= 0 ? "+" : ""}${pct.toFixed(2)}%)`,
+    up, tag, tone,
+  };
+}
 
 const MACRO_COMPOSITION = [
   { label: "GDP Growth Rate", pct: 75, value: "6.8% YoY", subtext: "Target: 6.5–7.0%", status: "Strong", tone: "green", barColor: "var(--accent-teal)" },
@@ -79,23 +99,51 @@ const ALERTS = [
 
 export default function Home() {
   const [moverTab, setMoverTab] = useState("gainers");
+  const { marketData, macroData } = useTerminalStore();
 
-  const moverList = 
-    moverTab === "gainers" 
-      ? GAINERS 
-      : moverTab === "losers" 
-      ? LOSERS 
-      : VOLUME_SHOCKERS;
+  // Build live KPI list from store — fallback to static seeds when API is down
+  const HOME_KPIS = useMemo(() => {
+    const live = SEED_KPIS.map(seed => buildKpi(seed, marketData?.[seed.key])).filter(Boolean);
+    // 5th card: IRS macro confidence score
+    const irs = macroData?.irs;
+    const irsScore = irs?.score ?? 52;
+    const irsZone  = irs?.zone  ?? "MODERATE";
+    const irsMode  = irs?.mode  ?? "NEUTRAL";
+    const irsTone  = irsScore >= 65 ? "red" : irsScore >= 40 ? "yellow" : "green";
+    live.push({
+      key: "irs", name: "MACRO CONFIDENCE",
+      value: `${irsScore} / 100`,
+      change: irsMode,
+      up: undefined, tag: irsZone, tone: irsTone, isVix: false,
+      spark: [54, 53, 55, 51, irsScore], timeframe: "IRS Score",
+    });
+    // If live market data not loaded yet, use static seeds
+    if (!marketData) return [
+      { name: "NIFTY 50",         value: "24,117.65", change: "+181.95 (+0.76%)", up: true,      tag: "UP",      tone: "green",  spark: [23800, 23920, 23890, 24050, 24117.65], timeframe: "Intraday",  isVix: false },
+      { name: "SENSEX",           value: "77,496.36", change: "+609.45 (+0.79%)", up: true,      tag: "UP",      tone: "green",  spark: [76500, 76900, 76800, 77200, 77496.36], timeframe: "Intraday",  isVix: false },
+      { name: "BANKNIFTY",        value: "55,403.60", change: "+3.25 (+0.01%)",   up: true,      tag: "FLAT",    tone: "yellow", spark: [55200, 55350, 55100, 55390, 55403.60], timeframe: "Intraday",  isVix: false },
+      { name: "INDIA VIX",        value: "14.20",     change: "-0.40 (-2.74%)",   up: false,     tag: "COOLING", tone: "green",  spark: [15.2, 14.9, 14.6, 14.4, 14.2],        timeframe: "Volatility", isVix: true  },
+      { name: "MACRO CONFIDENCE", value: `${irsScore} / 100`, change: irsMode,    up: undefined, tag: irsZone,   tone: irsTone, spark: [54, 53, 55, 51, irsScore],             timeframe: "IRS Score",  isVix: false },
+    ];
+    return live;
+  }, [marketData, macroData]);
+
+  const isLive   = marketData?.data_quality === "LIVE";
+  const moverList = moverTab === "gainers" ? GAINERS : moverTab === "losers" ? LOSERS : VOLUME_SHOCKERS;
 
   return (
     <Layout>
-      {/* ── TOP KPI ROW (5 CARDS) ── */}
+      {/* ── TOP KPI ROW (5 CARDS) + DATA QUALITY INDICATOR ── */}
+      <div style={{ marginBottom: 6, display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8 }}>
+        <span style={{ fontSize: 9, fontFamily: "var(--mono)", color: "var(--text-micro)", letterSpacing: "0.06em", textTransform: "uppercase" }}>Data Source</span>
+        <Badge tone={isLive ? "green" : "yellow"}>{isLive ? "LIVE" : "MOCK"}</Badge>
+      </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 14, marginBottom: 16 }}>
         {HOME_KPIS.map((k) => {
           // Color logic: For VIX, dropping is cooling (green), rising is heightened risk (red)
           const isPositive = k.up === true;
           const isNegative = k.up === false;
-          const deltaColor = k.isVix 
+          const deltaColor = k.isVix
             ? (isNegative ? "var(--accent-teal)" : "var(--accent-red)")
             : (isPositive ? "var(--accent-teal)" : isNegative ? "var(--accent-red)" : "var(--text-muted)");
 
@@ -129,11 +177,11 @@ export default function Home() {
               </div>
 
               <div style={{ marginTop: 10, paddingTop: 4 }}>
-                <Sparkline 
-                  color={k.tone === "green" ? "var(--accent-teal)" : k.tone === "red" ? "var(--accent-red)" : "var(--accent-amber)"} 
-                  points={k.spark} 
-                  height={22} 
-                  width={140} 
+                <Sparkline
+                  color={k.tone === "green" ? "var(--accent-teal)" : k.tone === "red" ? "var(--accent-red)" : "var(--accent-amber)"}
+                  points={k.spark}
+                  height={22}
+                  width={140}
                 />
               </div>
             </Card>
