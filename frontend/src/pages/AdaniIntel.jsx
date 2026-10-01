@@ -37,7 +37,7 @@ function AdaniStockCard({ stock, isStale }) {
           </div>
         </div>
 
-        <div style={{ color: "var(--text-secondary)", fontSize: 9, fontFamily: "var(--mono)", fontStyle: "italic", lineHeight: 1.4, borderTop: "1px solid var(--border-default)", paddingTop: 10 }}>
+        <div style={{ color: "var(--text-secondary)", fontSize: 11, fontFamily: "var(--font-sans)", lineHeight: 1.5, borderTop: "1px solid var(--border-default)", paddingTop: 10 }}>
           {stock.causalChain || "Analyzing macro transmission..."}
         </div>
       </div>

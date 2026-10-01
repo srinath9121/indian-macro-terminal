@@ -229,9 +229,9 @@ export default function Alerts() {
                       {/* Line 1: Company full name, triangle, percentage in color, priority badge */}
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                          <span style={{ color: "var(--text-primary)", fontSize: 11, fontWeight: 700, fontFamily: "var(--mono)" }}>{details.companyName}</span>
+                          <span style={{ color: "var(--text-primary)", fontSize: 12, fontWeight: 700, fontFamily: "var(--font-sans)" }}>{details.companyName}</span>
                           {details.pctStr && (
-                            <span style={{ color: details.pctColor, fontSize: 10, fontFamily: "var(--mono)", fontWeight: 700 }}>
+                            <span style={{ color: details.pctColor, fontSize: 11, fontFamily: "var(--mono)", fontWeight: 700 }}>
                               {details.triangle} {details.pctStr}
                             </span>
                           )}

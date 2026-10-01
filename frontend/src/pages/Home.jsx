@@ -4,48 +4,47 @@ import Card from "../components/ui/Card";
 import Section from "../components/ui/Section";
 import Badge from "../components/ui/Badge";
 import Sparkline from "../components/charts/Sparkline";
-import { useTerminalStore } from "../store/useTerminalStore";
 
 const HOME_KPIS = [
-  { name: "NIFTY 50", value: "24,117.65", change: "+181.95 (0.76%)", up: true, tone: "green", spark: [23800, 23920, 23890, 24050, 24117.65] },
-  { name: "SENSEX", value: "77,496.36", change: "+609.45 (0.79%)", up: true, tone: "green", spark: [76500, 76900, 76800, 77200, 77496.36] },
-  { name: "BANKNIFTY", value: "55,403.60", change: "+3.25 (0.01%)", up: true, tone: "yellow", spark: [55200, 55350, 55100, 55390, 55403.60] },
-  { name: "INDIA VIX", value: "14.20", change: "-0.40 (-2.74%)", up: true, tone: "green", spark: [15.2, 14.9, 14.6, 14.4, 14.2] },
-  { name: "MACRO CONFIDENCE", value: "52 / 100", change: "Neutral Bias", up: undefined, tone: "yellow", spark: [54, 53, 55, 51, 52] },
+  { name: "NIFTY 50", value: "24,117.65", change: "+181.95 (+0.76%)", up: true, tag: "UP", tone: "green", spark: [23800, 23920, 23890, 24050, 24117.65], timeframe: "Intraday" },
+  { name: "SENSEX", value: "77,496.36", change: "+609.45 (+0.79%)", up: true, tag: "UP", tone: "green", spark: [76500, 76900, 76800, 77200, 77496.36], timeframe: "Intraday" },
+  { name: "BANKNIFTY", value: "55,403.60", change: "+3.25 (+0.01%)", up: true, tag: "FLAT", tone: "yellow", spark: [55200, 55350, 55100, 55390, 55403.60], timeframe: "Intraday" },
+  { name: "INDIA VIX", value: "14.20", change: "-0.40 (-2.74%)", up: false, isVix: true, tag: "COOLING", tone: "green", spark: [15.2, 14.9, 14.6, 14.4, 14.2], timeframe: "Low Vol" },
+  { name: "MACRO CONFIDENCE", value: "52 / 100", change: "Neutral Bias", up: undefined, tag: "NEUTRAL", tone: "yellow", spark: [54, 53, 55, 51, 52], timeframe: "Grade B" },
 ];
 
 const MACRO_COMPOSITION = [
-  { label: "Growth Momentum", pct: 38, value: "Strong (6.8%)", tone: "green", barColor: "var(--accent-teal)" },
-  { label: "Inflation Pressure", pct: 27, value: "Elevated (5.1%)", tone: "red", barColor: "var(--accent-red)" },
-  { label: "Liquidity Buffer", pct: 20, value: "Surplus (₹1.62L Cr)", tone: "green", barColor: "var(--accent-teal)" },
-  { label: "FII Institutional Flow", pct: 15, value: "-₹3,247 Cr", tone: "red", barColor: "var(--accent-amber)" },
+  { label: "GDP Growth Rate", pct: 75, value: "6.8% YoY", subtext: "Target: 6.5–7.0%", status: "Strong", tone: "green", barColor: "var(--accent-teal)" },
+  { label: "CPI Inflation", pct: 60, value: "5.1% YoY", subtext: "RBI Tolerance Band: 2–6%", status: "Sticky", tone: "yellow", barColor: "var(--accent-amber)" },
+  { label: "System Liquidity", pct: 85, value: "+₹1.62L Cr", subtext: "RBI Net LAF Surplus", status: "Surplus", tone: "green", barColor: "var(--accent-teal)" },
+  { label: "FII Net Flow (MTD)", pct: 40, value: "-₹3,247 Cr", subtext: "DII Absorption: +₹4,102 Cr", status: "Outflow", tone: "red", barColor: "var(--accent-red)" },
 ];
 
 const WHAT_CHANGED = [
-  { bearish: true, text: "FII turned net sellers (-₹3,247 Cr session net)", time: "Today" },
-  { bearish: true, text: "Brent crude holding elevated above $85/bbl", time: "1d ago" },
-  { bearish: true, text: "RBI commentary highlights sticky food inflation", time: "2d ago" },
-  { bearish: false, text: "India GDP growth continues at 6.8% YoY pace", time: "This week" },
-  { bearish: false, text: "GST revenue collections reach new monthly high", time: "This week" },
+  { bearish: true, title: "FII Outflow Surge", text: "FII turned net sellers (-₹3,247 Cr session net)", time: "10 mins ago" },
+  { bearish: true, title: "Energy Pressure", text: "Brent crude holding elevated above $85/bbl", time: "1 hr ago" },
+  { bearish: true, title: "RBI Policy Stance", text: "RBI commentary highlights sticky food inflation risk", time: "3 hrs ago" },
+  { bearish: false, title: "Economic Resilience", text: "India GDP growth prints steady at 6.8% YoY pace", time: "Yesterday" },
+  { bearish: false, title: "Fiscal Revenue", text: "GST revenue collections cross record monthly target", time: "2 days ago" },
 ];
 
 const ADANI_SIGNALS = [
-  { tick: "ADANIENT", price: "₹3,142.25", chg: "+1.36%", up: true, tag: "BULLISH", tone: "green", spark: [3080, 3100, 3110, 3142] },
-  { tick: "ADANIPORTS", price: "₹1,341.10", chg: "+1.40%", up: true, tag: "NEUTRAL", tone: "yellow", spark: [1310, 1325, 1330, 1341] },
-  { tick: "ADANIGREEN", price: "₹1,062.70", chg: "+2.48%", up: true, tag: "BULLISH", tone: "green", spark: [1020, 1040, 1050, 1062] },
-  { tick: "ADANIPOWER", price: "₹597.85", chg: "-0.73%", up: false, tag: "DEFENSIVE", tone: "red", spark: [608, 604, 600, 597.85] },
-  { tick: "ATGL", price: "₹1,012.45", chg: "+1.39%", up: true, tag: "NEUTRAL", tone: "yellow", spark: [990, 1005, 1008, 1012] },
+  { tick: "ADANIENT", name: "Adani Enterprises", price: "₹3,142.25", chg: "+1.36%", up: true, tag: "BULLISH", tone: "bullish", spark: [3080, 3100, 3110, 3142] },
+  { tick: "ADANIPORTS", name: "Adani Ports & SEZ", price: "₹1,341.10", chg: "+1.40%", up: true, tag: "NEUTRAL", tone: "neutral", spark: [1310, 1325, 1330, 1341] },
+  { tick: "ADANIGREEN", name: "Adani Green Energy", price: "₹1,062.70", chg: "+2.48%", up: true, tag: "BULLISH", tone: "bullish", spark: [1020, 1040, 1050, 1062] },
+  { tick: "ADANIPOWER", name: "Adani Power", price: "₹597.85", chg: "-0.73%", up: false, tag: "DEFENSIVE", tone: "defensive", spark: [608, 604, 600, 597.85] },
+  { tick: "ATGL", name: "Adani Total Gas", price: "₹1,012.45", chg: "+1.39%", up: true, tag: "NEUTRAL", tone: "neutral", spark: [990, 1005, 1008, 1012] },
 ];
 
 const SECTORS = [
-  { name: "NIFTY IT", pct: "+1.42%", up: true },
-  { name: "NIFTY FMCG", pct: "+1.18%", up: true },
-  { name: "NIFTY BANK", pct: "+0.83%", up: true },
-  { name: "NIFTY AUTO", pct: "+0.55%", up: true },
-  { name: "NIFTY METAL", pct: "-0.24%", up: false },
-  { name: "NIFTY PHARMA", pct: "+0.12%", up: true },
-  { name: "NIFTY REALTY", pct: "+0.97%", up: true },
-  { name: "NIFTY ENERGY", pct: "-1.05%", up: false },
+  { name: "NIFTY IT", pct: "+1.42%", up: true, score: 85 },
+  { name: "NIFTY FMCG", pct: "+1.18%", up: true, score: 72 },
+  { name: "NIFTY REALTY", pct: "+0.97%", up: true, score: 65 },
+  { name: "NIFTY BANK", pct: "+0.83%", up: true, score: 58 },
+  { name: "NIFTY AUTO", pct: "+0.55%", up: true, score: 48 },
+  { name: "NIFTY PHARMA", pct: "+0.12%", up: true, score: 32 },
+  { name: "NIFTY METAL", pct: "-0.24%", up: false, score: -24 },
+  { name: "NIFTY ENERGY", pct: "-1.05%", up: false, score: -65 },
 ];
 
 const GAINERS = [
@@ -64,59 +63,105 @@ const LOSERS = [
   { name: "Titan Company", sym: "TITAN", price: "₹3,242.00", chg: "-0.55%" },
 ];
 
+const VOLUME_SHOCKERS = [
+  { name: "Adani Power", sym: "ADANIPOWER", price: "₹597.85", chg: "3.4x Vol" },
+  { name: "Tata Motors", sym: "TATAMOTORS", price: "₹982.10", chg: "2.8x Vol" },
+  { name: "State Bank of India", sym: "SBIN", price: "₹812.40", chg: "2.5x Vol" },
+  { name: "Reliance Industries", sym: "RELIANCE", price: "₹2,980.00", chg: "2.1x Vol" },
+  { name: "HDFC Bank", sym: "HDFCBANK", price: "₹1,640.20", chg: "1.9x Vol" },
+];
+
 const ALERTS = [
-  { title: "ADANI POWER ▼ 1.60%", body: "Crossed −1.5% intraday alert threshold", meta: "09:14 IST", tone: "red" },
-  { title: "Terminal Operational", body: "Live data pipelines nominal across NSE & RBI feeds", meta: "09:32 IST", tone: "green" },
-  { title: "FII Selling Alert Active", body: "Triggers when institutional net exceeds ₹2,000 Cr", meta: "Standing Rule", tone: "yellow" },
+  { title: "ADANI POWER ▼ 1.60%", body: "Crossed −1.5% intraday volatility threshold", meta: "09:14 IST", category: "HIGH RISK", tone: "red" },
+  { title: "NSE Pipelines Synchronized", body: "Live telemetry nominal across NSE tick & RBI liquidity feeds", meta: "09:32 IST", category: "SYSTEM OK", tone: "green" },
+  { title: "FII Net Outflow Trigger", body: "Active Rule: Notifies when institutional selling exceeds ₹2,000 Cr", meta: "PARAMETRIC", category: "RULE", tone: "yellow" },
 ];
 
 export default function Home() {
   const [moverTab, setMoverTab] = useState("gainers");
-  const moverList = moverTab === "gainers" ? GAINERS : LOSERS;
+
+  const moverList = 
+    moverTab === "gainers" 
+      ? GAINERS 
+      : moverTab === "losers" 
+      ? LOSERS 
+      : VOLUME_SHOCKERS;
 
   return (
     <Layout>
       {/* ── TOP KPI ROW (5 CARDS) ── */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 14, marginBottom: 16 }}>
-        {HOME_KPIS.map((k) => (
-          <Card key={k.name} className="card-hover">
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-              <div className="type-label" style={{ fontSize: 9, color: "var(--text-muted)" }}>{k.name}</div>
-              <Badge tone={k.tone}>{k.up === false ? "DOWN" : k.up === true ? "UP" : "NEUTRAL"}</Badge>
-            </div>
-            <div style={{ fontSize: 22, fontWeight: 700, fontFamily: "var(--mono)", color: "var(--text-primary)", marginTop: 6, lineHeight: 1.1 }}>
-              {k.value}
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 4 }}>
-              {k.up !== undefined && (
-                <span style={{ color: k.up ? "var(--accent-teal)" : "var(--accent-red)", fontSize: 10, fontWeight: 700 }}>
-                  {k.up ? "▲" : "▼"}
+        {HOME_KPIS.map((k) => {
+          // Color logic: For VIX, dropping is cooling (green), rising is heightened risk (red)
+          const isPositive = k.up === true;
+          const isNegative = k.up === false;
+          const deltaColor = k.isVix 
+            ? (isNegative ? "var(--accent-teal)" : "var(--accent-red)")
+            : (isPositive ? "var(--accent-teal)" : isNegative ? "var(--accent-red)" : "var(--text-muted)");
+
+          return (
+            <Card key={k.name} className="card-hover">
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ fontFamily: "var(--font-sans)", fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", color: "var(--text-muted)", textTransform: "uppercase" }}>
+                  {k.name}
                 </span>
-              )}
-              <span style={{ color: k.up === undefined ? "var(--text-muted)" : k.up ? "var(--accent-teal)" : "var(--accent-red)", fontSize: 10, fontFamily: "var(--mono)", fontWeight: 600 }}>
-                {k.change}
-              </span>
-            </div>
-            <div style={{ marginTop: 8 }}>
-              <Sparkline color={k.up ? "var(--accent-teal)" : k.up === false ? "var(--accent-red)" : "var(--accent-amber)"} points={k.spark} height={20} width={120} />
-            </div>
-          </Card>
-        ))}
+                <Badge tone={k.tone}>{k.tag}</Badge>
+              </div>
+
+              <div style={{ fontSize: 24, fontWeight: 700, fontFamily: "var(--mono)", color: "var(--text-primary)", marginTop: 8, letterSpacing: "-0.02em", lineHeight: 1.1 }}>
+                {k.value}
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  {k.up !== undefined && (
+                    <span style={{ color: deltaColor, fontSize: 10, fontWeight: 700 }}>
+                      {k.up ? "▲" : "▼"}
+                    </span>
+                  )}
+                  <span style={{ color: deltaColor, fontSize: 11, fontFamily: "var(--mono)", fontWeight: 600 }}>
+                    {k.change}
+                  </span>
+                </div>
+                <span style={{ fontFamily: "var(--font-sans)", fontSize: 9, fontWeight: 600, color: "var(--text-micro)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                  {k.timeframe}
+                </span>
+              </div>
+
+              <div style={{ marginTop: 10, paddingTop: 4 }}>
+                <Sparkline 
+                  color={k.tone === "green" ? "var(--accent-teal)" : k.tone === "red" ? "var(--accent-red)" : "var(--accent-amber)"} 
+                  points={k.spark} 
+                  height={22} 
+                  width={140} 
+                />
+              </div>
+            </Card>
+          );
+        })}
       </div>
 
       {/* ── MIDDLE ROW: 3 COLUMNS ── */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14, marginBottom: 16 }}>
         {/* COLUMN 1: MACRO COMPOSITION */}
-        <Section title="MACRO HEALTH & COMPOSITION">
-          <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: "4px 0" }}>
+        <Section title="Macro Health & Fundamental Composition">
+          <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: "4px 0" }}>
             {MACRO_COMPOSITION.map((m) => (
-              <div key={m.label}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                  <span style={{ color: "var(--text-primary)", fontSize: 11, fontWeight: 600 }}>{m.label}</span>
-                  <span style={{ color: "var(--text-primary)", fontSize: 11, fontFamily: "var(--mono)", fontWeight: 700 }}>{m.value}</span>
+              <div key={m.label} style={{ background: "rgba(255, 255, 255, 0.02)", padding: "6px 8px", borderRadius: 8, border: "1px solid var(--border-default)" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 2 }}>
+                  <span style={{ fontFamily: "var(--font-sans)", color: "var(--text-primary)", fontSize: 12, fontWeight: 600 }}>{m.label}</span>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ color: "var(--text-primary)", fontSize: 12, fontFamily: "var(--mono)", fontWeight: 700 }}>{m.value}</span>
+                    <Badge tone={m.tone}>{m.status}</Badge>
+                  </div>
                 </div>
-                <div style={{ height: 4, background: "var(--border-default)", borderRadius: 2, overflow: "hidden" }}>
-                  <div style={{ width: `${m.pct * 2}%`, height: "100%", background: m.barColor, borderRadius: 2 }} />
+
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                  <span style={{ fontFamily: "var(--font-sans)", fontSize: 10, color: "var(--text-micro)" }}>{m.subtext}</span>
+                </div>
+
+                <div style={{ height: 5, background: "rgba(0, 0, 0, 0.2)", borderRadius: 3, overflow: "hidden" }}>
+                  <div style={{ width: `${m.pct}%`, height: "100%", background: m.barColor, borderRadius: 3 }} />
                 </div>
               </div>
             ))}
@@ -124,14 +169,27 @@ export default function Home() {
         </Section>
 
         {/* COLUMN 2: WHAT CHANGED */}
-        <Section title="CATALYSTS & WHAT CHANGED">
+        <Section title="Catalysts & Market Shifters">
           <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "2px 0" }}>
             {WHAT_CHANGED.map((w, i) => (
-              <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "5px 0", borderBottom: "1px solid var(--border-default)" }}>
-                <span style={{ width: 6, height: 6, borderRadius: "50%", background: w.bearish ? "var(--accent-red)" : "var(--accent-teal)", marginTop: 5, flexShrink: 0 }} />
+              <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "8px", borderRadius: 8, background: "rgba(255,255,255,0.02)", borderBottom: "1px solid var(--border-default)" }}>
+                <span 
+                  style={{ 
+                    width: 7, 
+                    height: 7, 
+                    borderRadius: "50%", 
+                    background: w.bearish ? "var(--accent-red)" : "var(--accent-teal)", 
+                    marginTop: 4, 
+                    flexShrink: 0,
+                    boxShadow: w.bearish ? "0 0 8px rgba(239, 68, 68, 0.4)" : "0 0 8px rgba(0, 229, 255, 0.4)"
+                  }} 
+                />
                 <div style={{ flex: 1 }}>
-                  <div style={{ color: "var(--text-primary)", fontSize: 11, lineHeight: 1.4 }}>{w.text}</div>
-                  <div style={{ color: "var(--text-micro)", fontSize: 9, fontFamily: "var(--mono)", marginTop: 1 }}>{w.time}</div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ fontFamily: "var(--font-sans)", color: "var(--text-primary)", fontSize: 11, fontWeight: 700 }}>{w.title}</span>
+                    <span style={{ color: "var(--text-micro)", fontSize: 9, fontFamily: "var(--mono)" }}>{w.time}</span>
+                  </div>
+                  <div style={{ fontFamily: "var(--font-sans)", color: "var(--text-secondary)", fontSize: 11, lineHeight: 1.45, marginTop: 2 }}>{w.text}</div>
                 </div>
               </div>
             ))}
@@ -139,19 +197,26 @@ export default function Home() {
         </Section>
 
         {/* COLUMN 3: ADANI SIGNALS */}
-        <Section title="ADANI GROUP INTELLIGENCE">
+        <Section title="Adani Group Intelligence">
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {ADANI_SIGNALS.map((a) => (
-              <div key={a.tick} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: "1px solid var(--border-default)" }}>
+              <div key={a.tick} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 8px", borderRadius: 6, borderBottom: "1px solid var(--border-default)" }}>
                 <div>
-                  <div style={{ color: "var(--text-primary)", fontSize: 11, fontFamily: "var(--mono)", fontWeight: 700 }}>{a.tick}</div>
-                  <div style={{ color: "var(--text-primary)", fontSize: 11, fontFamily: "var(--mono)" }}>{a.price}</div>
+                  <div style={{ color: "var(--text-primary)", fontSize: 12, fontFamily: "var(--mono)", fontWeight: 700, letterSpacing: "0.02em" }}>{a.tick}</div>
+                  <div style={{ color: "var(--text-micro)", fontSize: 10, fontFamily: "var(--font-sans)" }}>{a.name}</div>
                 </div>
-                <div style={{ width: 45, height: 16 }}>
-                  <Sparkline color={a.up ? "var(--accent-teal)" : "var(--accent-red)"} points={a.spark} height={16} width={45} />
+
+                <div style={{ textAlign: "center" }}>
+                  <div style={{ color: "var(--text-primary)", fontSize: 12, fontFamily: "var(--mono)", fontWeight: 600 }}>{a.price}</div>
+                  <div style={{ width: 45, height: 12, marginTop: 2 }}>
+                    <Sparkline color={a.up ? "var(--accent-teal)" : "var(--accent-red)"} points={a.spark} height={12} width={45} />
+                  </div>
                 </div>
-                <div style={{ textAlign: "right", display: "flex", alignItems: "center", gap: 6 }}>
-                  <span style={{ color: a.up ? "var(--accent-teal)" : "var(--accent-red)", fontSize: 10, fontFamily: "var(--mono)", fontWeight: 600 }}>{a.chg}</span>
+
+                <div style={{ textAlign: "right", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 3 }}>
+                  <span style={{ color: a.up ? "var(--accent-teal)" : "var(--accent-red)", fontSize: 11, fontFamily: "var(--mono)", fontWeight: 700 }}>
+                    {a.chg}
+                  </span>
                   <Badge tone={a.tone}>{a.tag}</Badge>
                 </div>
               </div>
@@ -163,51 +228,119 @@ export default function Home() {
       {/* ── BOTTOM ROW: 3 COLUMNS ── */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14 }}>
         {/* COLUMN 1: SECTOR PERFORMANCE */}
-        <Section title="SECTOR PERFORMANCE">
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 12px" }}>
-            {SECTORS.map((s) => (
-              <div key={s.name} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: "1px solid var(--border-default)" }}>
-                <span style={{ color: "var(--text-primary)", fontSize: 10, fontFamily: "var(--mono)", fontWeight: 600 }}>{s.name}</span>
-                <span style={{ color: s.up ? "var(--accent-teal)" : "var(--accent-red)", fontSize: 10, fontFamily: "var(--mono)", fontWeight: 700 }}>
-                  {s.up ? "▲" : "▼"} {s.pct}
-                </span>
+        <Section title="Sector Heat & Relative Strength">
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px 10px" }}>
+            {SECTORS.map((s) => {
+              const isLead = s.score > 50;
+              const isLag = s.score < 0;
+              const bgTint = isLead 
+                ? "rgba(0, 229, 255, 0.05)" 
+                : isLag 
+                ? "rgba(239, 68, 68, 0.05)" 
+                : "rgba(255, 255, 255, 0.02)";
+
+              return (
+                <div 
+                  key={s.name} 
+                  style={{ 
+                    display: "flex", 
+                    justifyContent: "space-between", 
+                    alignItems: "center", 
+                    padding: "8px 10px", 
+                    borderRadius: 6,
+                    background: bgTint,
+                    border: "1px solid var(--border-default)" 
+                  }}
+                >
+                  <span style={{ color: "var(--text-primary)", fontSize: 11, fontFamily: "var(--mono)", fontWeight: 700 }}>
+                    {s.name}
+                  </span>
+                  <span style={{ color: s.up ? "var(--accent-teal)" : "var(--accent-red)", fontSize: 11, fontFamily: "var(--mono)", fontWeight: 700 }}>
+                    {s.up ? "▲" : "▼"} {s.pct}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </Section>
+
+        {/* COLUMN 2: TOP MOVERS (WITH SEGMENTED PILL TOGGLES) */}
+        <Section
+          title="Market Movers & Liquidity"
+          actionNode={
+            <div style={{ display: "flex", gap: 3, background: "rgba(0,0,0,0.25)", padding: "2px 3px", borderRadius: 6, border: "1px solid var(--border-default)" }}>
+              {["gainers", "losers", "volume"].map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setMoverTab(tab)}
+                  style={{
+                    border: "none",
+                    background: moverTab === tab ? "var(--accent-teal)" : "transparent",
+                    color: moverTab === tab ? "#05070B" : "var(--text-muted)",
+                    padding: "3px 8px",
+                    borderRadius: 4,
+                    fontSize: 9,
+                    fontFamily: "var(--font-sans)",
+                    fontWeight: 700,
+                    textTransform: "uppercase",
+                    cursor: "pointer",
+                    transition: "all 0.15s ease"
+                  }}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
+          }
+        >
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            {moverList.map((m) => (
+              <div 
+                key={m.sym} 
+                style={{ 
+                  display: "flex", 
+                  justifyContent: "space-between", 
+                  alignItems: "center", 
+                  padding: "6px 8px", 
+                  borderRadius: 6, 
+                  borderBottom: "1px solid var(--border-default)" 
+                }}
+              >
+                <div>
+                  <div style={{ color: "var(--text-primary)", fontSize: 11, fontFamily: "var(--mono)", fontWeight: 700 }}>{m.sym}</div>
+                  <div style={{ color: "var(--text-micro)", fontSize: 10, fontFamily: "var(--font-sans)" }}>{m.name}</div>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ color: "var(--text-primary)", fontSize: 11, fontFamily: "var(--mono)", fontWeight: 700 }}>{m.price}</div>
+                  <div style={{ 
+                    color: moverTab === "gainers" ? "var(--accent-teal)" : moverTab === "losers" ? "var(--accent-red)" : "var(--accent-amber)", 
+                    fontSize: 10, 
+                    fontFamily: "var(--mono)", 
+                    fontWeight: 600 
+                  }}>
+                    {m.chg}
+                  </div>
+                </div>
               </div>
             ))}
           </div>
         </Section>
 
-        {/* COLUMN 2: TOP MOVERS (WITH TABS) */}
-        <Section
-          title="MARKET MOVERS"
-          action={() => setMoverTab(moverTab === "gainers" ? "losers" : "gainers")}
-          actionLabel={moverTab === "gainers" ? "Show Losers" : "Show Gainers"}
-        >
-          {moverList.map((m) => (
-            <div key={m.sym} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: "1px solid var(--border-default)" }}>
-              <div>
-                <div style={{ color: "var(--text-primary)", fontSize: 11, fontFamily: "var(--mono)", fontWeight: 700 }}>{m.sym}</div>
-                <div style={{ color: "var(--text-muted)", fontSize: 9 }}>{m.name}</div>
-              </div>
-              <div style={{ textAlign: "right" }}>
-                <div style={{ color: "var(--text-primary)", fontSize: 11, fontFamily: "var(--mono)", fontWeight: 700 }}>{m.price}</div>
-                <div style={{ color: moverTab === "gainers" ? "var(--accent-teal)" : "var(--accent-red)", fontSize: 10, fontFamily: "var(--mono)", fontWeight: 600 }}>
-                  {m.chg}
-                </div>
-              </div>
-            </div>
-          ))}
-        </Section>
-
         {/* COLUMN 3: SYSTEM ALERTS */}
-        <Section title="LIVE SYSTEM & RISK ALERTS">
+        <Section title="Real-Time Risk & Telemetry Alerts">
           <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "2px 0" }}>
             {ALERTS.map((al, i) => (
-              <div key={i} style={{ background: "var(--bg-card)", padding: "8px 10px", borderRadius: 8, border: "1px solid var(--border-default)" }}>
+              <div key={i} style={{ background: "var(--bg-card)", padding: "10px", borderRadius: 8, border: "1px solid var(--border-default)" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ color: "var(--text-primary)", fontSize: 11, fontWeight: 700, fontFamily: "var(--mono)" }}>{al.title}</span>
-                  <Badge tone={al.tone}>{al.meta}</Badge>
+                  <span style={{ color: "var(--text-primary)", fontSize: 11.5, fontWeight: 700, fontFamily: "var(--font-sans)" }}>{al.title}</span>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <Badge tone={al.tone}>{al.category}</Badge>
+                    <span style={{ color: "var(--text-micro)", fontSize: 9, fontFamily: "var(--mono)" }}>{al.meta}</span>
+                  </div>
                 </div>
-                <div style={{ color: "var(--text-secondary)", fontSize: 10, marginTop: 3, lineHeight: 1.4 }}>{al.body}</div>
+                <div style={{ fontFamily: "var(--font-sans)", color: "var(--text-secondary)", fontSize: 11, marginTop: 4, lineHeight: 1.45 }}>
+                  {al.body}
+                </div>
               </div>
             ))}
           </div>

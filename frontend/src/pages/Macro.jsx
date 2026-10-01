@@ -136,21 +136,21 @@ export default function Macro() {
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, fontFamily: "var(--mono)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, fontFamily: "var(--font-sans)" }}>
                 <span style={{ color: "var(--text-muted)" }}>Growth Factor</span>
-                <span style={{ color: "var(--accent-teal)", fontWeight: 700 }}>STRONG (+6.8%)</span>
+                <span style={{ color: "var(--accent-teal)", fontWeight: 700, fontFamily: "var(--mono)" }}>STRONG (+6.8%)</span>
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, fontFamily: "var(--mono)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, fontFamily: "var(--font-sans)" }}>
                 <span style={{ color: "var(--text-muted)" }}>Inflation Factor</span>
-                <span style={{ color: "var(--accent-red)", fontWeight: 700 }}>ELEVATED (5.1%)</span>
+                <span style={{ color: "var(--accent-red)", fontWeight: 700, fontFamily: "var(--mono)" }}>ELEVATED (5.1%)</span>
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, fontFamily: "var(--mono)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, fontFamily: "var(--font-sans)" }}>
                 <span style={{ color: "var(--text-muted)" }}>Liquidity Buffer</span>
-                <span style={{ color: "var(--accent-teal)", fontWeight: 700 }}>SURPLUS (₹1.62L Cr)</span>
+                <span style={{ color: "var(--accent-teal)", fontWeight: 700, fontFamily: "var(--mono)" }}>SURPLUS (₹1.62L Cr)</span>
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, fontFamily: "var(--mono)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, fontFamily: "var(--font-sans)" }}>
                 <span style={{ color: "var(--text-muted)" }}>FX Resilience</span>
-                <span style={{ color: "var(--accent-blue)", fontWeight: 700 }}>STABLE ($650B+ Res.)</span>
+                <span style={{ color: "var(--accent-blue)", fontWeight: 700, fontFamily: "var(--mono)" }}>STABLE ($650B+ Res.)</span>
               </div>
             </div>
           </div>

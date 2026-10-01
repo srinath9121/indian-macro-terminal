@@ -63,7 +63,7 @@
   --font-mono: var(--mono);
   --font-sans: var(--sans);
   --font-body: var(--sans);
-  --font-display: var(--mono);
+  --font-display: var(--sans);
 
   /* ── Spacing System (Section 3.3) — 4px base ─────── */
   --space-1:  4px;
@@ -139,7 +139,7 @@ html, body, #root {
   background: linear-gradient(135deg, #F8FAFC 0%, #EFF6FF 50%, #F1F5F9 100%);
   background-attachment: fixed;
   color: var(--text-primary);
-  font-family: var(--mono);
+  font-family: var(--sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -158,6 +158,16 @@ html, body, #root {
 }
 ::-webkit-scrollbar-thumb:hover {
   background: var(--text-muted);
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-track {
+  background: rgba(5, 7, 11, 0.8);
+}
+[data-theme="dark"] ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+}
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 229, 255, 0.3);
 }
 
 ::selection {

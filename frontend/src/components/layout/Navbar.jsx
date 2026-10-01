@@ -1,18 +1,20 @@
 import { useState, useEffect } from "react";
-import { NavLink, useLocation } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { useTheme } from "../../hooks/useTheme";
+import { useTerminalStore } from "../../store/useTerminalStore";
 
-const LINKS = [
-  { path: "/",            label: "HOME" },
-  { path: "/pulse",       label: "PULSE" },
-  { path: "/macro",       label: "MACRO" },
-  { path: "/markets",     label: "MARKETS" },
-  { path: "/adani-intel", label: "ADANI INTEL" },
-  { path: "/geo-map",     label: "GEO MAP" },
-  { path: "/commodities", label: "COMMODITIES" },
-  { path: "/risk-radar",  label: "RISK RADAR" },
-  { path: "/alerts",      label: "ALERTS" },
-];
+const PAGE_NAMES = {
+  "/": "Overview & Executive Dashboard",
+  "/pulse": "Macro Scoreboard & Real-Time Pulse",
+  "/macro": "Macroeconomic Indicators & RBI Analytics",
+  "/markets": "Multi-Asset Markets & Sector Heatmaps",
+  "/adani-intel": "Adani Group Volatility & Flow Intelligence",
+  "/geo-map": "3D Geopolitical Risk Globe & Energy Corridors",
+  "/commodities": "Global Commodities & Import Sensitivities",
+  "/risk-radar": "Multi-Factor India Stress Index (IMSI)",
+  "/alerts": "Real-Time Telemetry & Parametric Alerts",
+  "/backtest": "Hindenburg Risk Backtest Engine",
+};
 
 function LiveClock() {
   const [time, setTime] = useState("");
@@ -37,151 +39,90 @@ function LiveClock() {
 
 export default function Navbar() {
   const location = useLocation();
-  const { theme, toggleTheme, isDark } = useTheme();
+  const pageTitle = PAGE_NAMES[location.pathname] || "Terminal View";
+  const lastUpdated = useTerminalStore((s) => s.lastUpdated);
 
   return (
     <nav
       style={{
         background: "var(--nav)",
-        backdropFilter: "blur(12px)",
-        WebkitBackdropFilter: "blur(12px)",
-        borderBottom: "1px solid var(--border)",
+        backdropFilter: "blur(14px)",
+        WebkitBackdropFilter: "blur(14px)",
+        borderBottom: "1px solid var(--border-default)",
         display: "flex",
         alignItems: "center",
+        justifyContent: "space-between",
         padding: "0 20px",
-        height: 52,
+        height: 50,
         position: "sticky",
         top: 0,
         zIndex: 100,
       }}
     >
-      {/* Logo */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginRight: 32 }}>
-        <div
-          style={{
-            width: 32,
-            height: 32,
-            borderRadius: 8,
-            background: "linear-gradient(135deg, #0284C7, #7C3AED)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: 14,
-            fontWeight: 900,
-            color: "#fff",
-            boxShadow: "0 4px 12px rgba(2, 132, 199, 0.25)",
-          }}
-        >
-          ⬡
-        </div>
-        <div>
-          <div style={{ color: "var(--text-primary)", fontSize: 13, fontWeight: 700, letterSpacing: 1, fontFamily: "var(--mono)" }}>
-            INDIA MACRO TERMINAL
-          </div>
-          <div style={{ color: "var(--text-muted)", fontSize: 9, letterSpacing: 0.5 }}>
-            Real-time Intelligence. Smarter Decisions.
-          </div>
-        </div>
+      {/* ── CURRENT BREADCRUMB / ACTIVE VIEW ── */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <span style={{ color: "var(--text-muted)", fontSize: 10, fontFamily: "var(--mono)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+          TERMINAL /
+        </span>
+        <span style={{ color: "var(--text-primary)", fontSize: 12.5, fontWeight: 700, fontFamily: "var(--font-sans)", letterSpacing: "0.02em" }}>
+          {pageTitle}
+        </span>
       </div>
 
-      {/* Nav Links */}
-      {LINKS.map((l) => {
-        const isActive = location.pathname === l.path;
-        return (
-          <NavLink
-            key={l.path}
-            to={l.path}
-            style={{
-              background: "none",
-              textDecoration: "none",
-              color: isActive ? "var(--text-primary)" : "var(--text-muted)",
-              fontSize: 11,
-              fontWeight: isActive ? 700 : 500,
-              letterSpacing: 0.8,
-              padding: "0 14px",
-              height: 52,
-              display: "flex",
-              alignItems: "center",
-              borderBottom: isActive ? "2px solid var(--accent-blue)" : "2px solid transparent",
-              transition: "all 0.15s",
-              fontFamily: "var(--mono)",
-            }}
-          >
-            {l.label}
-          </NavLink>
-        );
-      })}
-
-      {/* Right side */}
-      <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 14 }}>
-        {/* Live Indicator */}
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+      {/* ── RIGHT TELEMETRY & UTILITIES ── */}
+      <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+        {/* Live Feed Status */}
+        <div style={{ display: "flex", alignItems: "center", gap: 6, background: "rgba(34, 197, 94, 0.08)", padding: "3px 8px", borderRadius: 4, border: "1px solid rgba(34, 197, 94, 0.2)" }}>
           <span
             style={{
-              width: 7,
-              height: 7,
+              width: 6,
+              height: 6,
               borderRadius: "50%",
               background: "#22c55e",
               display: "inline-block",
               boxShadow: "0 0 6px #22c55e",
             }}
           />
-          <span style={{ color: "#22c55e", fontSize: 11, fontWeight: 700, fontFamily: "var(--mono)" }}>LIVE</span>
+          <span style={{ color: "#22c55e", fontSize: 10, fontWeight: 700, fontFamily: "var(--mono)", letterSpacing: "0.05em" }}>LIVE FEED</span>
         </div>
 
         <LiveClock />
 
-        {/* ── Theme Switcher ── */}
-        <button
-          onClick={toggleTheme}
-          title={`Switch to ${isDark ? "Light Glass" : "Dark Terminal"} mode`}
-          style={{
-            background: "var(--bg-card)",
-            border: "1px solid var(--border-default)",
-            borderRadius: 8,
-            padding: "4px 10px",
-            display: "flex",
-            alignItems: "center",
-            gap: 6,
-            cursor: "pointer",
-            color: "var(--text-primary)",
-            fontFamily: "var(--mono)",
-            fontSize: 11,
-            fontWeight: 700,
-            transition: "all 0.2s ease",
-          }}
-          className="card-hover"
-        >
-          <span style={{ fontSize: 12 }}>{isDark ? "🌙" : "☀️"}</span>
-          <span style={{ fontSize: 9, letterSpacing: 0.5, color: "var(--text-muted)" }}>
-            {isDark ? "DARK" : "LIGHT"}
+        {lastUpdated && (
+          <span style={{ color: "var(--text-micro)", fontSize: 9, fontFamily: "var(--mono)", letterSpacing: "0.04em" }}>
+            UPD {new Date(lastUpdated).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Kolkata" })}
           </span>
-        </button>
+        )}
 
-        <span style={{ color: "var(--text-muted)", fontSize: 15, cursor: "pointer" }}>🔍</span>
-        <span style={{ color: "var(--text-muted)", fontSize: 15, position: "relative", cursor: "pointer" }}>
-          🔔
-          <span
-            style={{
-              position: "absolute",
-              top: -4,
-              right: -4,
-              background: "#ef4444",
-              borderRadius: "50%",
-              fontSize: 8,
-              color: "#fff",
-              width: 14,
-              height: 14,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontWeight: 700,
-            }}
-          >
-            3
+        <div style={{ width: 1, height: 18, background: "var(--border-default)" }} />
+
+        {/* Global Quick Action Icons */}
+        <div style={{ display: "flex", alignItems: "center", gap: 12, color: "var(--text-muted)", fontSize: 14 }}>
+          <span style={{ cursor: "pointer" }} title="Quick Search">🔍</span>
+          <span style={{ position: "relative", cursor: "pointer" }} title="Alert Center">
+            🔔
+            <span
+              style={{
+                position: "absolute",
+                top: -4,
+                right: -4,
+                background: "#ef4444",
+                borderRadius: "50%",
+                fontSize: 8,
+                color: "#fff",
+                width: 13,
+                height: 13,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontWeight: 700,
+              }}
+            >
+              3
+            </span>
           </span>
-        </span>
-        <span style={{ color: "var(--text-muted)", fontSize: 15, cursor: "pointer" }}>👤</span>
+          <span style={{ cursor: "pointer" }} title="User Profile">👤</span>
+        </div>
       </div>
     </nav>
   );
