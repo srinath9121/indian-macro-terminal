@@ -210,7 +210,7 @@ html, body, #root {
 /* Hero: The single most important number — risk score, Nifty price, commodity price */
 .type-hero {
   font-family: var(--mono);
-  font-size: 36px;
+  font-size: 40px;
   font-weight: 700;
   color: var(--text-primary);
   letter-spacing: -0.5px;
@@ -220,7 +220,7 @@ html, body, #root {
 /* Data: FII flows, FX rates, bond yields */
 .type-data {
   font-family: var(--mono);
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 500;
   color: var(--text-primary);
   line-height: 1.1;
@@ -229,15 +229,15 @@ html, body, #root {
 /* Delta: Change percentages — +2.49%, -1.13%, +6bps */
 .type-delta {
   font-family: var(--mono);
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 400;
 }
 
 /* Label: Section headers, card titles — ALWAYS UPPERCASE */
 .type-label {
   font-family: var(--sans);
-  font-size: 11px;
-  font-weight: 600;
+  font-size: 12px;
+  font-weight: 700;
   color: var(--text-muted);
   letter-spacing: 0.8px;
   text-transform: uppercase;
@@ -246,7 +246,7 @@ html, body, #root {
 /* Body: Alert descriptions, AI summary prose */
 .type-body {
   font-family: var(--sans);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 400;
   color: var(--text-secondary);
   line-height: 1.6;
@@ -255,7 +255,7 @@ html, body, #root {
 /* Micro: Timestamps, source labels, duty notation */
 .type-micro {
   font-family: var(--sans);
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 400;
   color: var(--text-micro);
 }
@@ -263,7 +263,7 @@ html, body, #root {
 /* Signal: BULLISH / BEARISH / NEUTRAL / CRITICAL labels */
 .type-signal {
   font-family: var(--sans);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
 }
 
@@ -303,7 +303,7 @@ html, body, #root {
 
 .reference-value {
   font-family: var(--mono);
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 400;
   color: var(--text-muted);
   letter-spacing: 0.5px;
@@ -311,7 +311,7 @@ html, body, #root {
 
 .reference-label {
   font-family: var(--sans);
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 700;
   color: var(--text-muted);
   letter-spacing: 0.8px;

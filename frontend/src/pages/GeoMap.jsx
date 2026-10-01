@@ -37,11 +37,11 @@ function RegionCard({ region, score }) {
   const color = score >= 70 ? "var(--accent-red)" : score >= 45 ? "var(--accent-amber)" : "var(--accent-teal)";
   const label = score >= 70 ? "HIGH" : score >= 45 ? "ELEVATED" : "STABLE";
   return (
-    <div style={{ background: "var(--bg-card)", border: `1px solid var(--border-default)`, borderLeft: `4px solid ${color}`, borderRadius: 6, padding: "8px" }}>
+    <div style={{ background: "var(--bg-card)", border: `1px solid var(--border-default)`, borderLeft: `4px solid ${color}`, borderRadius: 6, padding: "10px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-        <div style={{ color: "var(--text-primary)", fontSize: 10, fontWeight: 700, fontFamily: "var(--mono)" }}>{region.name.toUpperCase()}</div>
+        <div style={{ color: "var(--text-primary)", fontSize: 12, fontWeight: 700, fontFamily: "var(--mono)" }}>{region.name.toUpperCase()}</div>
         <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-          <span style={{ color, fontSize: 11, fontWeight: 900, fontFamily: "var(--mono)" }}>{score}</span>
+          <span style={{ color, fontSize: 14, fontWeight: 900, fontFamily: "var(--mono)" }}>{score}</span>
         </div>
       </div>
       <div className="type-micro" style={{ color: "var(--text-secondary)", lineHeight: 1.4 }}>{region.impact}</div>
@@ -124,12 +124,12 @@ export default function GeoMap() {
           {/* Header */}
           <div style={{ background: "rgba(15, 23, 42, 0.75)", backdropFilter: "blur(12px)", border: "1px solid var(--border-default)", borderRadius: 6, padding: "12px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-              <span style={{ color: "var(--text-primary)", fontSize: 12, fontWeight: 700, fontFamily: "var(--mono)" }}>GLOBAL RISK</span>
+              <span style={{ color: "var(--text-primary)", fontSize: 14, fontWeight: 700, fontFamily: "var(--mono)" }}>GLOBAL RISK</span>
               <Badge color="green">LIVE</Badge>
             </div>
             <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-              <div style={{ color: gtiColor, fontSize: 24, fontWeight: 900, fontFamily: "var(--mono)" }}>{gti.toFixed(1)}</div>
-              <div style={{ color: gtiColor, fontSize: 11, fontFamily: "var(--mono)", fontWeight: 700 }}>{gtiLabel}</div>
+              <div style={{ color: gtiColor, fontSize: 28, fontWeight: 900, fontFamily: "var(--mono)" }}>{gti.toFixed(1)}</div>
+              <div style={{ color: gtiColor, fontSize: 14, fontFamily: "var(--mono)", fontWeight: 700 }}>{gtiLabel}</div>
             </div>
             <div className="type-micro" style={{ color: "var(--text-muted)", marginTop: 4 }}>
                {loading ? (
@@ -145,15 +145,15 @@ export default function GeoMap() {
 
           {/* Legends */}
           <div style={{ background: "rgba(15, 23, 42, 0.75)", backdropFilter: "blur(12px)", border: "1px solid var(--border-default)", borderRadius: 6, padding: "12px" }}>
-             <div className="type-label" style={{ marginBottom: 6 }}>ACTIVE TRADE ARCS</div>
+             <div className="type-label" style={{ marginBottom: 8 }}>ACTIVE TRADE ARCS</div>
               {LEGEND_ITEMS.map((item, i) => (
-                <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, paddingBottom: 6, marginBottom: 6, borderBottom: i < LEGEND_ITEMS.length - 1 ? "1px solid var(--border-default)" : "none" }}>
-                  <div style={{ width: 6, height: 6, borderRadius: "50%", background: item.color, flexShrink: 0, boxShadow: `0 0 6px ${item.color}` }} />
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, paddingBottom: 8, marginBottom: 8, borderBottom: i < LEGEND_ITEMS.length - 1 ? "1px solid var(--border-default)" : "none" }}>
+                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: item.color, flexShrink: 0, boxShadow: `0 0 6px ${item.color}` }} />
                   <div style={{ flex: 1, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ color: "var(--text-primary)", fontSize: 10, fontWeight: 700, fontFamily: "var(--mono)" }}>
+                    <span style={{ color: "var(--text-primary)", fontSize: 13, fontWeight: 700, fontFamily: "var(--sans)" }}>
                       {item.name}
                     </span>
-                    <span style={{ color: item.color, fontSize: 8, fontWeight: 700, fontFamily: "var(--mono)", background: `${item.color.replace('0.8', '0.15')}`, border: `1px solid ${item.color.replace('0.8', '0.3')}`, borderRadius: 3, padding: "2px 6px" }}>{item.flow}</span>
+                    <span style={{ color: item.color, fontSize: 10, fontWeight: 700, fontFamily: "var(--mono)", background: `${item.color.replace('0.8', '0.15')}`, border: `1px solid ${item.color.replace('0.8', '0.3')}`, borderRadius: 3, padding: "2px 7px" }}>{item.flow}</span>
                   </div>
                 </div>
               ))}
@@ -161,18 +161,18 @@ export default function GeoMap() {
 
            {/* Flow Legend */}
             <div style={{ background: "rgba(15, 23, 42, 0.75)", backdropFilter: "blur(12px)", border: "1px solid var(--border-default)", borderRadius: 6, padding: "12px" }}>
-              <div className="type-label" style={{ fontSize: 9, marginBottom: 8 }}>FLOW TYPES</div>
+              <div className="type-label" style={{ marginBottom: 10 }}>FLOW TYPES</div>
               {[
-                ["rgba(234,179,8,0.8)", "Commodity", "Oil, Gas, Metals trade routes"],
-                ["rgba(239,68,68,0.8)", "Military", "Border tension, defense risk"],
+                ["rgba(234,179,8,0.8)",  "Commodity",  "Oil, Gas, Metals trade routes"],
+                ["rgba(239,68,68,0.8)",  "Military",   "Border tension, defense risk"],
                 ["rgba(59,130,246,0.8)", "Diplomatic", "Policy, sanctions, FII impact"],
-                ["rgba(249,115,22,0.8)", "Sanctions", "Trade restrictions, supply risk"],
+                ["rgba(249,115,22,0.8)", "Sanctions",  "Trade restrictions, supply risk"],
               ].map(([c, label, desc]) => (
-                <div key={label} style={{ display: "flex", alignItems: "flex-start", gap: 6, marginBottom: 5 }}>
-                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: c, marginTop: 1, flexShrink: 0 }} />
+                <div key={label} style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 8 }}>
+                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: c, marginTop: 3, flexShrink: 0 }} />
                   <div>
-                    <span style={{ color: "var(--text-secondary)", fontSize: 8, fontFamily: "var(--mono)", fontWeight: 700 }}>{label}</span>
-                    <div style={{ color: "var(--text-muted)", fontSize: 7, fontFamily: "var(--mono)" }}>{desc}</div>
+                    <span style={{ color: "var(--text-primary)", fontSize: 12, fontFamily: "var(--sans)", fontWeight: 700 }}>{label}</span>
+                    <div style={{ color: "var(--text-muted)", fontSize: 11, fontFamily: "var(--sans)", marginTop: 1 }}>{desc}</div>
                   </div>
                 </div>
               ))}
@@ -184,26 +184,26 @@ export default function GeoMap() {
             {/* Impact Signals */}
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {[
-                { label: "Middle East → BRENT", signal: "WATCH",   reason: "Iran Hormuz risk. India imports 85% of crude via sea.", color: "var(--accent-amber)" },
-                { label: "China → NIFTY IT",    signal: "WATCH",   reason: "Supply chain pressure. FII risk-off.", color: "var(--accent-amber)" },
-                { label: "Russia → USDINR",     signal: "MONITOR", reason: "Energy import bill. Fertilizer supply. Rupee pressure.", color: "#60a5fa" },
-                { label: "USA → FII FLOWS",     signal: "POSITIVE",reason: "Fed pause = FII inflows.", color: "var(--accent-teal)" },
+                { label: "Middle East → BRENT", signal: "WATCH",    reason: "Iran Hormuz risk. India imports 85% of crude via sea.", color: "var(--accent-amber)" },
+                { label: "China → NIFTY IT",    signal: "WATCH",    reason: "Supply chain pressure. FII risk-off.", color: "var(--accent-amber)" },
+                { label: "Russia → USDINR",     signal: "MONITOR",  reason: "Energy import bill. Fertilizer supply. Rupee pressure.", color: "#60a5fa" },
+                { label: "USA → FII FLOWS",     signal: "POSITIVE", reason: "Fed pause = FII inflows.", color: "var(--accent-teal)" },
               ].map((s, i) => (
-                <div key={i} style={{ background: "rgba(15, 23, 42, 0.75)", backdropFilter: "blur(12px)", border: `1px solid var(--border-default)`, borderLeft: `3px solid ${s.color}`, borderRadius: 6, padding: "10px" }}>
+                <div key={i} style={{ background: "rgba(15, 23, 42, 0.75)", backdropFilter: "blur(12px)", border: `1px solid var(--border-default)`, borderLeft: `3px solid ${s.color}`, borderRadius: 6, padding: "12px" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                    <span style={{ color: "var(--text-primary)", fontSize: 9, fontWeight: 700, fontFamily: "var(--mono)" }}>{s.label}</span>
+                    <span style={{ color: "var(--text-primary)", fontSize: 12, fontWeight: 700, fontFamily: "var(--mono)" }}>{s.label}</span>
                     <span style={{ 
                       color: s.color, 
-                      fontSize: 8, 
+                      fontSize: 10, 
                       fontWeight: 700, 
                       fontFamily: "var(--mono)", 
                       background: `${s.color}15`, 
                       border: `1px solid ${s.color}33`, 
                       borderRadius: 4, 
-                      padding: "2px 6px" 
+                      padding: "2px 7px" 
                     }}>{s.signal}</span>
                   </div>
-                  <div className="type-micro" style={{ color: "var(--text-secondary)", lineHeight: 1.4 }}>{s.reason}</div>
+                  <div className="type-micro" style={{ color: "var(--text-secondary)", lineHeight: 1.5 }}>{s.reason}</div>
                 </div>
               ))}
             </div>
