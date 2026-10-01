@@ -60,6 +60,10 @@
   /* ── Typography (Section 3.2) ────────────────────── */
   --mono: 'Departure Mono', 'JetBrains Mono', 'Fira Code', monospace;
   --sans:  'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: var(--mono);
+  --font-sans: var(--sans);
+  --font-body: var(--sans);
+  --font-display: var(--mono);
 
   /* ── Spacing System (Section 3.3) — 4px base ─────── */
   --space-1:  4px;

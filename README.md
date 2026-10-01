@@ -13,59 +13,70 @@
 
 ## 📸 Overview
 
-The **India Macro Terminal** bridges the gap between macroeconomic indicators (GDP, CPI, Liquidity, FII/DII flows), global geopolitical conflict data (GDELT 2.0 / Goldstein scores), and real-time NSE market movements. Built with an institutional **Dark Terminal** and **Light Glass** design system, it delivers high-density financial data with zero noise.
+The **India Macro Terminal** bridges the gap between macroeconomic indicators (GDP forecasts, CPI inflation, RBI liquidity, FII/DII institutional flows), global geopolitical risk events (GDELT 2.0 / Goldstein conflict severity scores), and real-time Indian capital market movements (NSE indices & equities). 
+
+Designed with an institutional **Dark Terminal** and **Light Glass** aesthetic, it offers latency-optimized telemetry, high-density analytical dashboards, and interactive 3D risk visualization tailored for analysts, hedge funds, and market participants.
 
 ---
 
-## ✨ Key Features
+## ✨ Key Capabilities & Dashboards
 
-### 1. 📊 India Macro Scoreboard & Pulse
-- Real-time tracking of India's **GDP Growth Forecasts**, **CPI Inflation YoY**, **System Liquidity**, and **FII/DII Net Flow trends**.
-- Automated **Market Bias computation** (Bullish / Defensive / Neutral) with confidence grading.
-- Live Nifty 50, Sensex, Bank Nifty, India VIX, Brent Crude, and USD/INR market snapshots.
+### 1. 📊 Macro Scoreboard & Pulse (`/`)
+- Real-time tracking of India's **GDP Growth Forecasts**, **CPI YoY Inflation**, **RBI System Liquidity**, and **FII/DII Institutional Flow trends**.
+- Automated **Market Bias computation** (Bullish / Defensive / Neutral) paired with algorithmic confidence grading.
+- Live telemetry for **Nifty 50, Sensex, Bank Nifty, India VIX, Brent Crude, and USD/INR**.
 
-### 2. 🌍 3D Geopolitical Risk Globe (Geo Map)
-- Full-screen interactive 3D WebGL globe visualizing **active global trade routes and risk arcs** (Middle East crude routes, Russia sanctions, China supply chain pressure, US Fed interest rate dynamics).
-- Country-level Geopolitical Tension Index (**GTI**) and Goldstein conflict severity scores derived from **GDELT 2.0**.
-- Seamless frosted HUD overlay panels providing instant India-specific macro impact signals upon country selection.
+### 2. 🌍 3D Geopolitical Risk Globe (`/geomap`)
+- Interactive WebGL 3D globe powered by Three.js rendering **global energy transit corridors and geopolitical stress arcs** (Strait of Hormuz, Malacca, Bab-el-Mandeb, Red Sea).
+- Country-level Geopolitical Tension Index (**GTI**) and Goldstein conflict severity metrics derived from live **GDELT 2.0** feeds.
+- Dynamic HUD sidebars delivering immediate India macro transmission channels and sector impact alerts upon country inspection.
 
-### 3. ⚡ Adani Group Intelligence & Live Alerts
-- High-frequency tracking across flagship group equities (*ADANIENT, ADANIPORTS, ADANIPOWER, ADANIGREEN, ATGL, AWL*).
-- Correlation spike detection and automated anomaly alerting for sudden price movements and institutional flow reversals.
+### 3. 📈 Multi-Asset Markets Intelligence (`/markets`)
+- Real-time NSE sectoral performance heatmaps, top gainers, top losers, and volume shockers.
+- 30-day historical sparkline strips across key benchmark indices.
+- Institutional foreign (FII) vs. domestic (DII) flow delta comparisons.
 
-### 4. 🌓 Dual Theme Architecture & Typography
-- **Dark Terminal Theme**: High-contrast obsidian slate (`#0B0E14`), electric cyan (`#00D4FF`), and mint emerald (`#10B981`) accents tailored for multi-monitor trading desks.
-- **Light Glass Theme**: Clean frosted glass aesthetic with subtle backdrops for daytime analysis.
-- **Departure Mono Typography**: Pixel-perfect monospace typeface rendered for all numeric metrics, percentages, and tickers.
+### 4. ⚡ Adani Group Intelligence (`/adani`)
+- High-frequency risk tracking across flagship group equities (*ADANIENT, ADANIPORTS, ADANIPOWER, ADANIGREEN, ATGL, AWL*).
+- Anomaly detection engine monitoring cross-asset volatility divergence and rapid institutional position unwinding.
+
+### 5. 🎯 Risk Radar & Macro Models (`/risk-radar` & `/backtest`)
+- Multi-factor India Macro Stress Index (**IMSI**) aggregating FX pressure, imported commodity shock, and bond yield spreads.
+- Algorithmic backtesting harness for cross-market warning systems.
+
+### 6. 🌓 Dual Theme & Typography
+- **Dark Terminal**: High-contrast obsidian slate (`#080C14`), electric cyan (`#00E5FF`), and mint emerald (`#059669`) accents.
+- **Light Glass**: Frosted glassmorphism design with crisp readability for daytime trading desks.
+- **Departure Mono & JetBrains Mono**: Monospace typefaces optimized for financial tickers, basis points, and numeric readouts.
 
 ---
 
 ## 🏗️ System Architecture
 
 ```
-                                  ┌────────────────────────┐
-                                  │   Real-Time Sources    │
-                                  │ (yfinance, NSE, GDELT) │
-                                  └───────────┬────────────┘
-                                              │
-                                              ▼
-┌────────────────────────────────────────────────────────────────────────────────────────┐
-│                                FastAPI Backend (Python 3.11)                           │
-│  ├── /api/market/movers         (Gainers, Losers, Volume Shockers)                     │
-│  ├── /api/gdelt/india-events    (Geopolitical Tension Index & Conflict Scores)         │
-│  ├── /api/fii-history           (Institutional Foreign/Domestic Flows)                 │
-│  ├── /api/india-risk-score      (Multi-factor Composite Risk Engine)                  │
-│  └── /ws/live                   (WebSocket real-time price & pulse broadcast)          │
-└─────────────────────────────────────────────┬──────────────────────────────────────────┘
-                                              │
-                                              ▼
-┌────────────────────────────────────────────────────────────────────────────────────────┐
-│                               React + Vite SPA (Tailwind / Custom CSS)                 │
-│  ├── Pulse Dashboard            (Macro Scoreboard, Causal Chains, Adani Intel)         │
-│  ├── 3D Geo Map HUD             (WebGL Three-Globe, Geopolitical Risk Arcs)            │
-│  ├── Markets Intelligence       (Movers, 30-Day Index Sparklines, Heatmaps)            │
-│  └── Risk Radar                 (Composite India Risk Factor Gauges)                   │
-└────────────────────────────────────────────────────────────────────────────────────────┘
+                                  ┌────────────────────────────────┐
+                                  │   External Real-Time Feeds     │
+                                  │ (yfinance, NSE, GDELT 2.0, RBI)│
+                                  └───────────────┬────────────────┘
+                                                  │
+                                                  ▼
+┌─────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                                   FastAPI Backend Engine                                        │
+│  ├── /api/market/movers         (Gainers, Losers, Volume Shockers, Index Sparklines)            │
+│  ├── /api/gdelt/india-events    (Geopolitical Tension Index & Event Severity)                   │
+│  ├── /api/fii-history           (Institutional FII/DII Net Inflows & Historical Trends)         │
+│  ├── /api/india-risk-score      (Composite Multi-Factor India Macro Stress Index)               │
+│  └── /ws/live                   (WebSocket telemetry stream for live price and pulse updates)   │
+└────────────────────────────────────────────────┬────────────────────────────────────────────────┘
+                                                 │
+                                                 ▼
+┌─────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                                   React 18 + Vite SPA Frontend                                  │
+│  ├── Pulse Dashboard            (Macro Health, Impact Chains, Live Telemetry)                   │
+│  ├── 3D Geo Map HUD             (Three-Globe WebGL, Country Conflict Breakdown)                 │
+│  ├── Markets Dashboard          (Sector Heatmaps, Sparklines, Global Comparison)                │
+│  └── Adani Intelligence         (Group Anomaly Scanner, Live Alerts)                            │
+└─────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -74,22 +85,15 @@ The **India Macro Terminal** bridges the gap between macroeconomic indicators (G
 
 ```
 indian-macro-terminal/
-├── api/              # Serverless entrypoints (Vercel / Cloud functions)
-├── backend/          # Modular FastAPI routes, services, and models
-├── data/             # Persistent cache & historical data storage
-├── docs/             # Design specifications, prompt guides, and project documentation
-├── frontend/         # React + Vite frontend application
-│   ├── src/
-│   │   ├── components/  # Reusable UI cards, 3D globe, navbar, charts
-│   │   ├── hooks/       # Custom React hooks (useTheme, useLiveData, etc.)
-│   │   ├── pages/       # Terminal views: Pulse, Macro, Markets, GeoMap, RiskRadar
-│   │   └── store/       # Zustand centralized terminal state store
-│   └── public/fonts/    # Self-hosted Departure Mono fonts
-├── notebooks/        # Jupyter research & statistical exploratory notebooks
-├── src/              # Core production backend engine, GDELT fetchers, and NSE session managers
-├── tests/            # Automated test suite for API endpoints and market fetchers
+├── backend/          # Modular FastAPI application (routes, models, services)
+├── frontend/         # React 18 + Vite client (Three.js globe, components, pages)
+│   ├── public/       # Static assets, GeoJSON country boundaries, fonts
+│   └── src/          # React components, custom hooks, Zustand store
+├── src/              # Core production backend engine, scrapers & calculation pipelines
+├── tests/            # Test suite for APIs, NSE sessions, and risk models
+├── data/             # Persistent JSON configurations & reference calendars
 ├── Dockerfile        # Multi-stage production container build
-├── render.yaml       # Render.com auto-deployment configuration
+├── render.yaml       # Blueprint configuration for Render deployment
 └── requirements.txt  # Python backend dependencies
 ```
 
@@ -110,17 +114,19 @@ cd indian-macro-terminal
 
 ### 2. Backend Setup
 ```bash
-# Create and activate a virtual environment
+# Create and activate Python virtual environment
 python -m venv venv
-# Windows:
+
+# Windows
 .\venv\Scripts\activate
-# Linux/macOS:
+
+# Linux / macOS
 source venv/bin/activate
 
-# Install dependencies
+# Install Python dependencies
 pip install -r requirements.txt
 
-# Start the backend server (default port 8080)
+# Start FastAPI server (Port 8080)
 python src/server.py
 ```
 
@@ -135,38 +141,38 @@ npm install
 npm run dev
 ```
 
-Open your browser and navigate to: **`http://localhost:5173`**
+Open your browser at **`http://localhost:5173`**.
 
 ---
 
 ## 🐳 Docker Deployment
 
-To build and run the entire unified terminal via Docker:
+To build and run the unified single-container setup (serving both frontend and backend):
 
 ```bash
 # Build the Docker image
 docker build -t indian-macro-terminal .
 
-# Run the container
+# Run container on port 8080
 docker run -p 8080:8080 indian-macro-terminal
 ```
 
-Access the production build at **`http://localhost:8080`**.
+Access the application in your browser at **`http://localhost:8080`**.
 
 ---
 
-## 🧪 Running Tests
+## 🧪 Testing
 
-Run the test suite located in `tests/`:
+Run backend tests using Python:
 
 ```bash
-# Run API endpoint sanity tests
+# API endpoint tests
 python tests/test_api.py
 
-# Run NSE session and fetcher tests
+# NSE session and fetcher tests
 python tests/test_nse.py
 
-# Run currency stress model tests
+# Currency stress engine tests
 python tests/test_currency_stress.py
 ```
 
@@ -174,4 +180,4 @@ python tests/test_currency_stress.py
 
 ## 📜 License
 
-This project is licensed under the **MIT License**. See the [LICENSE](LICENSE) file for details.
+This project is licensed under the **MIT License**.

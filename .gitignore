@@ -1,34 +1,47 @@
-# Vercel
+# Vercel / Deployment
 .vercel
 .vercel_ignore
 
-# Node
-node_modules
-dist
+# Node & Frontend
+node_modules/
+dist/
+build/
 .env
+.env.local
+.env.*.local
 .DS_Store
+Thumbs.db
 
 # Python
 __pycache__/
 *.py[cod]
 *$py.class
-.venv
+*.pyc
+.venv/
 venv/
 ENV/
 env/
 outputs/*.json
+.pytest_cache/
 
-# Data/Models
+# Data & ML Artifacts
 models/*.pkl
 models/*.joblib
 data/raw/
 data/processed/
 nse_cookies_requests.json
 
-# Local Environment Binaries & Archives
+# IDEs & Editor metadata
+*.code-workspace
+.vscode/*
+!.vscode/settings.json
+.idea/
+
+# Local Environment Binaries, Archives & Doc Dumps
 py311/
 node/
 .gemini/
 *.zip
 *.log
+*.docx
 get-pip.py
