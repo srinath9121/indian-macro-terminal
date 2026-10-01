@@ -1,18 +1,24 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
- 
-// Static placeholder data — replace with real alerts feed from your backend.
-const NOTIFICATIONS = [
-  { title: 'ADANI POWER ▼ 1.60%', sub: 'Crossed −1.5% alert threshold · 09:14 IST' },
-  { title: 'FII net selling ₹2,345 Cr', sub: 'Institutional outflow · today' },
-  { title: 'Brent crossed $85/barrel', sub: 'Commodities · 2 hrs ago' },
-];
+import { useTerminalStore } from '../store/useTerminalStore';
+
  
 export default function Topbar({ crumb }) {
   const [notifOpen, setNotifOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [clock, setClock] = useState('');
   const [query, setQuery] = useState('');
+  const alertsData = useTerminalStore((s) => s.alertsData);
+  // Use live alerts if available, fall back to static
+  const NOTIFICATIONS = alertsData?.alerts?.slice(0, 5).map(a => ({
+    title: a.title, sub: a.description,
+  })) ?? [
+    { title: 'ADANI POWER ▼ 1.60%', sub: 'Crossed −1.5% alert threshold · 09:14 IST' },
+    { title: 'FII net selling ₹2,345 Cr', sub: 'Institutional outflow · today' },
+    { title: 'Brent crossed $85/barrel', sub: 'Commodities · 2 hrs ago' },
+  ];
+  const highCount = alertsData?.high_count ?? NOTIFICATIONS.length;
+
  
   const notifRef = useRef(null);
   const profileRef = useRef(null);
@@ -41,8 +47,7 @@ export default function Topbar({ crumb }) {
  
   function handleSearchKeyDown(e) {
     if (e.key === 'Enter' && query.trim()) {
-      // TODO: wire to your backend /api/search endpoint
-      alert(`Search: "${query.trim()}" — wire this input to your backend /api/search endpoint.`);
+      console.info(`[Search] Query: "${query.trim()}" — connect to /api/search`);
     }
   }
  
@@ -66,14 +71,15 @@ export default function Topbar({ crumb }) {
  
         <div
           className="top-icon"
-          onClick={() => alert('Settings panel — connect this to your preferences page.')}
+          onClick={() => console.info('[Settings] Open preferences panel')}
+          title="Preferences"
         >
           ⚙
         </div>
  
         <div className="top-icon-wrap" ref={notifRef}>
           <div className="top-icon" onClick={() => setNotifOpen((v) => !v)}>
-            🔔<span className="top-badge">{NOTIFICATIONS.length}</span>
+            🔔<span className="top-badge">{highCount}</span>
           </div>
           <div className={'dropdown' + (notifOpen ? ' open' : '')}>
             {NOTIFICATIONS.map((n, i) => (

@@ -3,6 +3,7 @@ import Navbar from "./Navbar";
 import SidebarNav from "./SidebarNav";
 import { useTerminalStore } from "../../store/useTerminalStore";
 import { useLocation } from "react-router-dom";
+import { useWebSocketFeed } from "../../hooks/useWebSocketFeed";
 
 /**
  * Layout — wraps every page.
@@ -14,6 +15,9 @@ export default function Layout({ children, noPadding = false }) {
   const startPolling = useTerminalStore((s) => s.startPolling);
   const location = useLocation();
   const [fadeIn, setFadeIn] = useState(false);
+
+  // PRIMARY data feed: WebSocket push from backend
+  useWebSocketFeed();
 
   useEffect(() => {
     const id = startPolling(15000);

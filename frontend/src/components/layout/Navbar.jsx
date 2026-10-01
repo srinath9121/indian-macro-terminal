@@ -38,9 +38,16 @@ function LiveClock() {
 }
 
 export default function Navbar() {
-  const location = useLocation();
-  const pageTitle = PAGE_NAMES[location.pathname] || "Terminal View";
+  const location  = useLocation();
+  const pageTitle  = PAGE_NAMES[location.pathname] || "Terminal View";
   const lastUpdated = useTerminalStore((s) => s.lastUpdated);
+  const wsConnected = useTerminalStore((s) => s.wsConnected);
+
+  // Connection indicator colours
+  const connColor = wsConnected ? "#22c55e" : "#f59e0b";
+  const connBg    = wsConnected ? "rgba(34,197,94,0.08)"  : "rgba(245,158,11,0.08)";
+  const connBrd   = wsConnected ? "rgba(34,197,94,0.25)"  : "rgba(245,158,11,0.25)";
+  const connLabel = wsConnected ? "WS LIVE" : "REST POLL";
 
   return (
     <nav
@@ -71,19 +78,20 @@ export default function Navbar() {
 
       {/* ── RIGHT TELEMETRY & UTILITIES ── */}
       <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-        {/* Live Feed Status */}
-        <div style={{ display: "flex", alignItems: "center", gap: 6, background: "rgba(34, 197, 94, 0.08)", padding: "3px 8px", borderRadius: 4, border: "1px solid rgba(34, 197, 94, 0.2)" }}>
+        {/* Connection Status — honest WS vs REST indicator */}
+        <div style={{ display: "flex", alignItems: "center", gap: 6, background: connBg, padding: "3px 8px", borderRadius: 4, border: `1px solid ${connBrd}`, transition: "all 0.4s ease" }}>
           <span
             style={{
               width: 6,
               height: 6,
               borderRadius: "50%",
-              background: "#22c55e",
+              background: connColor,
               display: "inline-block",
-              boxShadow: "0 0 6px #22c55e",
+              boxShadow: wsConnected ? `0 0 6px ${connColor}` : "none",
+              animation: wsConnected ? "_pulse 2s ease-in-out infinite" : "none",
             }}
           />
-          <span style={{ color: "#22c55e", fontSize: 10, fontWeight: 700, fontFamily: "var(--mono)", letterSpacing: "0.05em" }}>LIVE FEED</span>
+          <span style={{ color: connColor, fontSize: 10, fontWeight: 700, fontFamily: "var(--mono)", letterSpacing: "0.05em", transition: "color 0.4s" }}>{connLabel}</span>
         </div>
 
         <LiveClock />
